@@ -6,15 +6,9 @@
 
 package mongoexample
 
-import java.util.Date
-
 import akka.actor.{Actor, Cancellable}
 import com.mongodb.WriteConcern
-import com.mongodb.casbah.Imports._
-import com.mongodb.casbah.commons.{MongoDBList, MongoDBObject}
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import com.mongodb.casbah.commons.MongoDBObject
 
 
 /**
@@ -22,25 +16,31 @@ import scala.concurrent.duration._
   */
 
 case
-class TEST(scope: String)
 
-case class ADD(scope: String)
+case class ADDPARAMMODEL(modelId: String, modelData: String)
+
+/*case class ADD(scope: String)
 
 case class UNLOCK(scope: String)
 
-case class ACK(scope: String, log: List[String], ir: Int)
+case class ACK(scope: String, log: List[String], ir: Int)*/
 
 
-class HelloActor extends Actor {
-  lazy val logs = UsingMongo("application1")("logs")
+class MongoActor extends Actor {
+  lazy val models = UsingMongo("parammodel")("model")
   var timer: Option[Cancellable] = None
 
   override
   def receive: Receive = {
-    case TEST(scope)                     => {
-      println(scope)
+    case ADDPARAMMODEL(modelId, modelData) => {
+      println("add " + modelId)
+      val dbo = MongoDBObject(
+        "modelId" -> modelId,
+        "modelData" -> modelData
+      )
+      models insert(dbo, WriteConcern.ACKNOWLEDGED)
     }
-    case ADD(scope)                      => {
+    /*case ADD(scope)                      => {
       println("add")
       val dbo = MongoDBObject(
         "scope" -> scope,
@@ -137,9 +137,7 @@ class HelloActor extends Actor {
         }
 
         case _ => {
-          println(toLog.toString() + " busy, wait for 1 sec and retry")
-          timer = Some(
-            context.system.scheduler.scheduleOnce(1 seconds, self, ACK(scope, toLog, incRemaining)))
+          println("error operation!")
         }
       }
 
@@ -158,7 +156,7 @@ class HelloActor extends Actor {
       logs.findAndModify(query, update2)
       * 
       */
-    }
-    case _                               => println("_")
+    }*/
+    case _ => println("_")
   }
 }
