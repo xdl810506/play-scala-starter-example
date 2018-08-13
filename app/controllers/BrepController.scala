@@ -1,14 +1,21 @@
+/*
+ * BrepController.scala
+ * Copyright 2018 Qunhe Tech, all rights reserved.
+ * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
+ */
+
 package controllers
 
-import java.util.UUID
-
 import akka.actor.{ActorSystem, Props}
+import brephandler.brepmodel
+import com.qunhe.diybe.module.math2.base.Point2d
 import javax.inject._
-import mongoexample._
+import mongoexample.{ADDPARAMMODEL, MongoActor}
 import play.api.mvc._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.parsing.json.JSONObject
 
 /**
   * This controller creates an `Action` that demonstrates how to write
@@ -26,10 +33,9 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   *                    a blocking API.
   */
 @Singleton
-class AsyncController @Inject()(cc: ControllerComponents, actorSystem: ActorSystem)
+class BrepController @Inject()(cc: ControllerComponents, actorSystem: ActorSystem)
   (implicit exec: ExecutionContext) extends AbstractController(cc) {
-  val helloActor1 = actorSystem.actorOf(Props[HelloActor], name = "helloActor1")
-
+  lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
   /**
     * Creates an Action that returns a plain text message after a delay
     * of 1 second.
@@ -38,11 +44,24 @@ class AsyncController @Inject()(cc: ControllerComponents, actorSystem: ActorSyst
     * will be called when the application receives a `GET` request with
     * a path of `/message`.
     */
-  def message = {
-    Action.async {
-      lazy val scope = UUID.randomUUID.toString()
-      helloActor1 ! ADD(scope)
-      getFutureMessage(1.second).map { msg => Ok(msg) }
+  def createShell = {
+    Action { request => {
+      val json = request.body.asJson.get
+      val startPtX = (json \ "startpoint" \ "x").as[Double]
+      val startPtY = (json \ "startpoint" \ "y").as[Double]
+      val endPtX = (json \ "endpoint" \ "x").as[Double]
+      val endPtY = (json \ "endpoint" \ "y").as[Double]
+      val height = (json \ "height").as[Double]
+      val (shellName, shellJson) = brepmodel.createFaceByLinearExtrusion(new Point2d(startPtX,
+        startPtY),
+        new Point2d(endPtX, endPtY), height)
+      val outcome = Map(
+        "shellName" -> shellName,
+        "shellData" -> shellJson
+      )
+      mongoActor ! ADDPARAMMODEL(shellName, shellJson)
+      Ok(JSONObject(outcome).toString())
+    }
     }
   }
 

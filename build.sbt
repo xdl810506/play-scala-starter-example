@@ -6,6 +6,7 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+resolvers += "Qunhe Repository" at "http://nexus.qunhequnhe.com/repository/maven-public/"
 
 scalaVersion := "2.12.6"
 
@@ -21,3 +22,5 @@ libraryDependencies += "com.h2database" % "h2" % "1.4.197"
 libraryDependencies += "com.h2database" % "h2" % "1.3.175" % Test
 libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
 libraryDependencies += "mysql" % "mysql-connector-java" % "5.1.36"
+libraryDependencies += "com.qunhe.diybe.utils" % "brep" % "0.10.11-SNAPSHOT"
+libraryDependencies += "com.qunhe.diybe.module" % "parametric-engine" % "0.2.0"

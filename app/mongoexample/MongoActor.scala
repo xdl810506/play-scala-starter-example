@@ -1,5 +1,5 @@
 /*
- * HelloActor.scala
+ * MongoActor.scala
  * Copyright 2018 Qunhe Tech, all rights reserved.
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
@@ -16,8 +16,7 @@ import com.mongodb.casbah.commons.MongoDBObject
   */
 
 case
-
-case class ADDPARAMMODEL(modelId: String, modelData: String)
+class ADDPARAMMODEL(modelId: String, modelData: String)
 
 /*case class ADD(scope: String)
 
@@ -35,6 +34,7 @@ class MongoActor extends Actor {
     case ADDPARAMMODEL(modelId, modelData) => {
       println("add " + modelId)
       val dbo = MongoDBObject(
+        "_id" -> modelId,
         "modelId" -> modelId,
         "modelData" -> modelData
       )

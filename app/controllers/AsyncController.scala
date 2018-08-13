@@ -1,10 +1,7 @@
 package controllers
 
-import java.util.UUID
-
-import akka.actor.{ActorSystem, Props}
+import akka.actor.ActorSystem
 import javax.inject._
-import mongoexample._
 import play.api.mvc._
 
 import scala.concurrent.duration._
@@ -28,7 +25,6 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 @Singleton
 class AsyncController @Inject()(cc: ControllerComponents, actorSystem: ActorSystem)
   (implicit exec: ExecutionContext) extends AbstractController(cc) {
-  val helloActor1 = actorSystem.actorOf(Props[HelloActor], name = "helloActor1")
 
   /**
     * Creates an Action that returns a plain text message after a delay
@@ -40,8 +36,6 @@ class AsyncController @Inject()(cc: ControllerComponents, actorSystem: ActorSyst
     */
   def message = {
     Action.async {
-      lazy val scope = UUID.randomUUID.toString()
-      helloActor1 ! ADD(scope)
       getFutureMessage(1.second).map { msg => Ok(msg) }
     }
   }
