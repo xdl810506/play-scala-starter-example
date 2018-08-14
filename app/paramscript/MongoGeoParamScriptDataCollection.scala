@@ -22,15 +22,15 @@ class MongoGeoParamScriptDataCollection(db: DB) extends
   def get(id: String): GeoParamScriptData = findOne(DBQuery.is("_id", id))
 
   def upsert(data: GeoParamScriptData): Unit = {
-    MongoJackModule.configure(MAPPER)
+    MongoJackModule.configure(MongoCollection.MAPPER)
     if (data.id != null) {
       if (upsert(DBQuery.is("_id", data.id), data)) {
       }
       else {
-        LOG.message("upsert - update failed").`with`("id", data.id).error()
+        MongoCollection.LOG.message("upsert - update failed").`with`("id", data.id).error()
       }
     } else {
-      LOG.message("upsert - can't find id of geoParamScriptData").error()
+      MongoCollection.LOG.message("upsert - can't find id of geoParamScriptData").error()
     }
   }
 
