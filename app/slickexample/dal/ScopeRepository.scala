@@ -40,14 +40,12 @@ class ScopeRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(implic
 
   private val scopeInfos = TableQuery[ScopeTableDef]
 
-  def add(scopeInfo: ScopeInfo): Future[String] = {
-    db.run(scopeInfos += scopeInfo).map(res => "scope info successfully added").recover {
-      case ex: Exception => {
-        log.warn("db write error." + ex.getMessage)
-        throw ex
-        ex.getMessage
-      }
-    }
+  def add(scopeInfo: ScopeInfo): Future[Boolean] = {
+    db.run(scopeInfos += scopeInfo).map(_ => true).recover({
+      case ex: Exception =>
+        log.warn("create blue green switch fails", ex)
+        false
+    })
   }
 
   def delete(scope: String): Future[Int] = {
