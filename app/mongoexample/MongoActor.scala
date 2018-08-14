@@ -7,8 +7,13 @@
 package mongoexample
 
 import akka.actor.{Actor, Cancellable}
-import com.mongodb.WriteConcern
 import com.mongodb.casbah.commons.MongoDBObject
+import com.mongodb.util.JSON
+import com.mongodb.{DBObject, WriteConcern}
+import com.qunhe.diybe.utils.brep.topo.Shell
+import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
+
+import scala.collection.JavaConverters._
 
 
 /**
@@ -16,7 +21,11 @@ import com.mongodb.casbah.commons.MongoDBObject
   */
 
 case
-class ADDPARAMMODEL(modelId: String, modelData: String)
+class ADDPARAMMODEL(shell: Shell)
+
+case class ADDPARAMSCRIPT(shellId: String, paramScript: String)
+
+case class GETPARAMMODEL(shellId: String)
 
 /*case class ADD(scope: String)
 
@@ -27,18 +36,52 @@ case class ACK(scope: String, log: List[String], ir: Int)*/
 
 class MongoActor extends Actor {
   lazy val models = UsingMongo("parammodel")("model")
+  lazy val scripts = UsingMongo("parammodel")("paramscript")
   var timer: Option[Cancellable] = None
 
   override
   def receive: Receive = {
-    case ADDPARAMMODEL(modelId, modelData) => {
+    case ADDPARAMMODEL(shell)                 => {
+      val modelId = shell.getName
+      val shells: List[Shell] = List(shell)
+      val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
       println("add " + modelId)
+      val dbObject: DBObject = JSON.parse(modelData).asInstanceOf[DBObject]
       val dbo = MongoDBObject(
         "_id" -> modelId,
         "modelId" -> modelId,
-        "modelData" -> modelData
+        "modelData" -> dbObject
       )
       models insert(dbo, WriteConcern.ACKNOWLEDGED)
+    }
+    case ADDPARAMSCRIPT(shellId, paramScript) => {
+      println("add param script for " + shellId)
+      /*val jsonScript = Json.parse(paramScript);
+      val dbo = MongoDBObject(
+        "_id" -> shellId,
+        "modelId" -> modelId,
+        "modelData" -> modelData
+      )
+      scripts insert(dbo, WriteConcern.ACKNOWLEDGED)*/
+    }
+    case GETPARAMMODEL(shellId)               => {
+      val filter = MongoDBObject("_id" -> 1, "modelId" -> 1, "modelData" -> 1)
+      val query = MongoDBObject("_id" -> shellId)
+      models findOne(query, filter) match {
+        case Some(dbo) => {
+          val fields = dbo toMap
+
+          fields get ("modelData") match {
+            case modelData: String => {
+              sender ! modelData
+            }
+            case _                 => sender ! "exception"
+          }
+        }
+        case _         => {
+          sender ! "no result return from mongo query"
+        }
+      }
     }
     /*case ADD(scope)                      => {
       println("add")

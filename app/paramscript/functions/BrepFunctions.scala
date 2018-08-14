@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package brephandler
+package paramscript.functions
 
 import java.util.UUID
 
@@ -22,8 +22,8 @@ import scala.collection.JavaConverters._
   * @author jiangliu
   *
   */
-@ParamFunction.Package("BrepHandler")
-object brepmodel {
+@ParamFunction.Package("BrepModeling")
+class BrepFunctions {
 
   /**
     * get the texturePosition and build the tileComponent
@@ -37,19 +37,17 @@ object brepmodel {
   def createFaceByLinearExtrusion(
     @ParamFunction.Param("startPt") startPt: Point2d,
     @ParamFunction.Param("endPt") endPt: Point2d,
-    @ParamFunction.Param("height") height: Double): (String, String) = {
+    @ParamFunction.Param("height") height: Double): Shell = {
     val curve2d = new LineSeg2d(startPt, endPt)
     val ccs = new CCS()
     try {
       val shell: Shell = new Shell(BrepBuilder.createFaceByLinearExtrusion(curve2d, ccs, height))
       shell.setId(new ShellId(UUID.randomUUID.toString()))
-      val shells: List[Shell] = List(shell)
-      val modelString = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
-      (shell.getName, modelString)
+      shell
     } catch {
       case e: ValidationException => {
         e.printStackTrace()
-        ("", "")
+        null
       }
     }
   }
