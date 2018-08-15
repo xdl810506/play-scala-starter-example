@@ -19,11 +19,13 @@ import javax.inject._
 import mongoexample._
 import paramscript._
 import paramscript.functions.BrepFunctions
+import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.mvc._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.postfixOps
 import scala.util.parsing.json.JSONObject
 
 /**
@@ -190,9 +192,10 @@ class BrepController @Inject()(cc: ControllerComponents,
         outcome
       }
 
-      val timeoutThreshold = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
+      implicit val futures = Futures.actorSystemToFutures(actorSystem)
+      val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
         getOrElse(3000)
-      futureOutcome.withTimeout(timeoutThreshold.milliseconds)
+      futureOutcome.withTimeout(timeoutThreshold milliseconds)
         .map(outcome => Ok(JSONObject(outcome).toString()))
         .recover {
           case e: scala.concurrent.TimeoutException => {
@@ -209,7 +212,7 @@ class BrepController @Inject()(cc: ControllerComponents,
     */
   def getShell(shellId: String) = {
     Action.async { request => {
-      val timeoutThreshold = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
+      val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
         getOrElse(3000)
       implicit val timeout = Timeout(timeoutThreshold milliseconds)
       val futureRes: Future[String] = ask(mongoActor, GETPARAMMODEL(shellId)).mapTo[String]
