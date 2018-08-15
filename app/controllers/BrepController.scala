@@ -14,10 +14,12 @@ import akka.util.Timeout
 import com.qunhe.diybe.module.math2.base.Point2d
 import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
+import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
-import mongoexample.{ADDPARAMMODEL, ADDPARAMSCRIPTDATA, ADDPARAMTEMPLATESCRIPT, GETPARAMMODEL, MongoActor}
+import mongoexample._
+import paramscript._
 import paramscript.functions.BrepFunctions
-import paramscript.{GeoParamScriptData, GeoParamScriptDescData, GeoParamScriptParamDescData, GeoParamScriptRefData, GeoParamScriptTemplateData, ParamGeoFormula, ParamGeoFunction, ParamGeoInput, ParamScriptData, ParamScriptHelper}
+import play.api.libs.concurrent.Futures._
 import play.api.mvc._
 
 import scala.concurrent.duration._
@@ -40,9 +42,12 @@ import scala.util.parsing.json.JSONObject
   *                    a blocking API.
   */
 @Singleton
-class BrepController @Inject()(cc: ControllerComponents, actorSystem: ActorSystem)
-  (implicit exec: ExecutionContext) extends AbstractController(cc) {
+class BrepController @Inject()(cc: ControllerComponents,
+                               actorSystem: ActorSystem,
+                               configuration: play.api.Configuration)
+                              (implicit exec: ExecutionContext) extends AbstractController(cc) {
   lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
+  val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
 
   /**
     * Creates a shell from input start point, end point and extrusion height
@@ -184,7 +189,17 @@ class BrepController @Inject()(cc: ControllerComponents, actorSystem: ActorSyste
         mongoActor ! ADDPARAMSCRIPTDATA(shell.getName, geoScriptData)
         outcome
       }
-      futureOutcome.map(outcome => Ok(JSONObject(outcome).toString()))
+
+      val timeoutThreshold = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
+        getOrElse(3000)
+      futureOutcome.withTimeout(timeoutThreshold.milliseconds)
+        .map(outcome => Ok(JSONObject(outcome).toString()))
+        .recover {
+          case e: scala.concurrent.TimeoutException => {
+            LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "", request.method + "timeout after " + timeoutThreshold + " milliseconds")
+            InternalServerError("timeout")
+          }
+        }
     }
     }
   }
@@ -194,9 +209,18 @@ class BrepController @Inject()(cc: ControllerComponents, actorSystem: ActorSyste
     */
   def getShell(shellId: String) = {
     Action.async { request => {
-      implicit val timeout = Timeout(10 seconds)
+      val timeoutThreshold = configuration.getOptional[Long]("qunhe.geoparamengine.http.timeout").
+        getOrElse(3000)
+      implicit val timeout = Timeout(timeoutThreshold milliseconds)
       val futureRes: Future[String] = ask(mongoActor, GETPARAMMODEL(shellId)).mapTo[String]
-      futureRes.map(outcome => Ok(outcome))
+      futureRes
+        .map(outcome => Ok(outcome))
+        .recover {
+          case e: scala.concurrent.TimeoutException => {
+            LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "", request.method + "timeout after " + timeoutThreshold + " milliseconds")
+            InternalServerError("timeout")
+          }
+        }
     }
     }
   }

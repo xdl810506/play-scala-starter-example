@@ -8,13 +8,15 @@ package mongoexample
 
 import com.mongodb.casbah.Imports.{MongoClientOptions, MongoDB, ReadPreference, ServerAddress}
 import com.mongodb.casbah.MongoClient
+import javax.inject.{Inject, Singleton}
 
 /**
   * Created by jiangliu on 12/08/2018.
   */
-object UsingMongo {
-  lazy val endpoints = "127.0.0.1:27017"
-  lazy val connections = 32
+@Singleton
+class UsingMongo @Inject()(configuration: play.api.Configuration)() {
+  lazy val endpoints: String = configuration.getOptional[String]("qunhe.geoparamengine.mongo.endpoints").getOrElse("127.0.0.1:27017")
+  lazy val connections = configuration.getOptional[Long]("qunhe.geoparamengine.mongo.max-cnx").getOrElse(32)
 
   val mongo: MongoClient = {
     val addresses = endpoints split (",") flatMap {

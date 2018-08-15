@@ -18,10 +18,10 @@ import scala.collection.JavaConverters._
   */
 @JsonCreator
 class ParamScriptData(var formulas: List[ParamGeoFormula],
-  var inputs: List[ParamGeoInput],
-  var functions: List[ParamGeoFunction],
-  var savedOrderedExecutionIds: List[String],
-  var savedOutputIds: Set[String]) {
+                      var inputs: List[ParamGeoInput],
+                      var functions: List[ParamGeoFunction],
+                      var savedOrderedExecutionIds: List[String],
+                      var savedOutputIds: Set[String]) {
   def toParamScript: ParamScript = {
     val script = new ParamScript
     script.setInputs(inputs.map((input: ParamGeoInput) => input.asInstanceOf[BasicInput]).asJava)
