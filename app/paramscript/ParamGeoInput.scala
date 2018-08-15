@@ -6,18 +6,22 @@
 
 package paramscript
 
+import com.fasterxml.jackson.annotation.JsonCreator
 import com.qunhe.diybe.module.parametric.engine.nodes.BasicInput
 
 /**
   * @author jiangliu
   *
   */
-class Input(var paramName: String,
-  var value: String,
-  var valueType: String,
+@JsonCreator
+class ParamGeoInput(paramName: String,
+  value: String,
+  valueType: String,
   var maxValue: String,
   var minValue: String,
-  var description: String,
-  var paramType: Integer,
-  var restrictionType: Integer) extends BasicInput(paramName, value, valueType){
+  var description: String)
+  extends BasicInput(paramName, value, valueType) {
+  def this() {
+    this("", "", "", "", "", "")
+  }
 }

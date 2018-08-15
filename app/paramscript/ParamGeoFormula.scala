@@ -6,16 +6,19 @@
 
 package paramscript
 
+import com.fasterxml.jackson.annotation.JsonCreator
 import com.qunhe.diybe.module.parametric.engine.nodes.BasicFormula
 
 /**
   * @author jiangliu
   *
   */
-class Formula(var paramName: String,
-  var value: String,
-  var valueType: String,
-  var description: String) extends BasicFormula(paramName, value, valueType) {
+@JsonCreator
+class ParamGeoFormula(paramName: String,
+  value: String,
+  valueType: String,
+  var description: String)
+  extends BasicFormula(paramName, value, valueType) {
 
   def this(id: String,
     paramName: String,
@@ -23,5 +26,9 @@ class Formula(var paramName: String,
     valueType: String,
     description: String) = {
     this(paramName, value, valueType, description)
+  }
+
+  def this() {
+    this("", "", "", "")
   }
 }

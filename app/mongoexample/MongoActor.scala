@@ -7,11 +7,15 @@
 package mongoexample
 
 import akka.actor.{Actor, Cancellable}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.mongodb.casbah.commons.MongoDBObject
 import com.mongodb.util.JSON
 import com.mongodb.{DBObject, WriteConcern}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
+import paramscript.{GeoParamScriptData, GeoParamScriptTemplateData}
 
 import scala.collection.JavaConverters._
 
@@ -23,7 +27,9 @@ import scala.collection.JavaConverters._
 case
 class ADDPARAMMODEL(shell: Shell)
 
-case class ADDPARAMSCRIPT(shellId: String, paramScript: String)
+case class ADDPARAMTEMPLATESCRIPT(shellId: String, scriptTemplateData: GeoParamScriptTemplateData)
+
+case class ADDPARAMSCRIPTDATA(shellId: String, scriptData: GeoParamScriptData)
 
 case class GETPARAMMODEL(shellId: String)
 
@@ -36,12 +42,18 @@ case class ACK(scope: String, log: List[String], ir: Int)*/
 
 class MongoActor extends Actor {
   lazy val models = UsingMongo("parammodel")("model")
-  lazy val scripts = UsingMongo("parammodel")("paramscript")
+  lazy val templateScripts = UsingMongo("parammodel")("GeoParamScriptTemplateData")
+  lazy val scripts = UsingMongo("parammodel")("GeoParamScriptData")
   var timer: Option[Cancellable] = None
+
+  /*import com.mongodb.DB
+
+  lazy val db: DB = UsingMongo.getMongoClient.getDB("parammodel").underlying
+  lazy val geoParamScriptDataColl = new MongoGeoParamScriptDataCollection(db)*/
 
   override
   def receive: Receive = {
-    case ADDPARAMMODEL(shell)                 => {
+    case ADDPARAMMODEL(shell)                                => {
       val modelId = shell.getName
       val shells: List[Shell] = List(shell)
       val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
@@ -54,17 +66,25 @@ class MongoActor extends Actor {
       )
       models insert(dbo, WriteConcern.ACKNOWLEDGED)
     }
-    case ADDPARAMSCRIPT(shellId, paramScript) => {
-      println("add param script for " + shellId)
-      /*val jsonScript = Json.parse(paramScript);
-      val dbo = MongoDBObject(
-        "_id" -> shellId,
-        "modelId" -> modelId,
-        "modelData" -> modelData
-      )
-      scripts insert(dbo, WriteConcern.ACKNOWLEDGED)*/
+    case ADDPARAMTEMPLATESCRIPT(shellId, scriptTemplateData) => {
+      println("add param template script for " + shellId)
+      val mapper = new ObjectMapper() with ScalaObjectMapper
+      mapper.registerModule(DefaultScalaModule)
+      val scriptTemplateJson = mapper.writeValueAsString(scriptTemplateData)
+
+      val dbObject: DBObject = JSON.parse(scriptTemplateJson).asInstanceOf[DBObject]
+      templateScripts insert(dbObject, WriteConcern.ACKNOWLEDGED)
     }
-    case GETPARAMMODEL(shellId)               => {
+    case ADDPARAMSCRIPTDATA(shellId, scriptData)             => {
+      println("add param script data for " + shellId)
+      val mapper = new ObjectMapper() with ScalaObjectMapper
+      mapper.registerModule(DefaultScalaModule)
+      val scriptTemplateJson = mapper.writeValueAsString(scriptData)
+
+      val dbObject: DBObject = JSON.parse(scriptTemplateJson).asInstanceOf[DBObject]
+      scripts insert(dbObject, WriteConcern.ACKNOWLEDGED)
+    }
+    case GETPARAMMODEL(shellId)                              => {
       val filter = MongoDBObject("_id" -> 1, "modelId" -> 1, "modelData" -> 1)
       val query = MongoDBObject("_id" -> shellId)
       models findOne(query, filter) match {

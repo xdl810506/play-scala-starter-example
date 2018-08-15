@@ -6,6 +6,7 @@
 
 package paramscript
 
+import com.fasterxml.jackson.annotation.JsonCreator
 import com.qunhe.diybe.module.parametric.engine.nodes.BasicFunction
 
 import scala.collection.JavaConverters._
@@ -14,11 +15,13 @@ import scala.collection.JavaConverters._
   * @author jiangliu
   *
   */
-class Function(var name: String,
-  var inputIds: Map[String, String],
+@JsonCreator
+class ParamGeoFunction(name: String,
+  inputIds: Map[String, String],
   var description: String,
-  var functionTypeId: Int,
-  var versionId: Int) extends BasicFunction(name, inputIds.asJava) {
+  functionTypeId: Int,
+  versionId: Int) extends BasicFunction(name, inputIds
+  .asJava) {
 
   def this(id: String, name: String,
     inputIds: Map[String, String],
@@ -35,6 +38,11 @@ class Function(var name: String,
     */
   def this(name: String) {
     this(name, Map(), "", 0, 0)
+    assignUniqueId
+  }
+
+  def this() {
+    this("", Map(), "", 0, 0)
     assignUniqueId
   }
 }

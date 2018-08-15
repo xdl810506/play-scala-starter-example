@@ -6,20 +6,20 @@
 
 package controllers
 
+import java.util.UUID
+
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.qunhe.diybe.module.math2.base.Point2d
-import com.qunhe.diybe.module.parametric.engine.nodes.{BasicFormula, BasicFunction, BasicInput}
-import com.qunhe.diybe.module.parametric.engine.{ParamScript, ParamScriptExecutor, ParamScriptResult}
+import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import javax.inject._
-import mongoexample.{ADDPARAMMODEL, ADDPARAMSCRIPT, GETPARAMMODEL, MongoActor}
-import paramscript.ParamScriptHelper
+import mongoexample.{ADDPARAMMODEL, ADDPARAMSCRIPTDATA, ADDPARAMTEMPLATESCRIPT, GETPARAMMODEL, MongoActor}
 import paramscript.functions.BrepFunctions
+import paramscript.{GeoParamScriptData, GeoParamScriptDescData, GeoParamScriptParamDescData, GeoParamScriptRefData, GeoParamScriptTemplateData, ParamGeoFormula, ParamGeoFunction, ParamGeoInput, ParamScriptData, ParamScriptHelper}
 import play.api.mvc._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.parsing.json.JSONObject
@@ -87,70 +87,101 @@ class BrepController @Inject()(cc: ControllerComponents, actorSystem: ActorSyste
         val endPtY = (json \ "endpoint" \ "y").as[Double]
         val height = (json \ "height").as[Double]
 
-        val basicInputStartPntX = new BasicInput
+        val basicInputStartPntX = new ParamGeoInput
         basicInputStartPntX.setValue(startPtX.toString)
         basicInputStartPntX.setParamName("startPtX")
         basicInputStartPntX.setValueType("double")
         basicInputStartPntX.assignUniqueId
 
-        val basicInputStartPntY = new BasicInput
+        val basicInputStartPntY = new ParamGeoInput
         basicInputStartPntY.setValue(startPtY.toString)
         basicInputStartPntY.setParamName("startPtY")
         basicInputStartPntY.setValueType("double")
         basicInputStartPntY.assignUniqueId
 
-        val basicInputEndPntX = new BasicInput
+        val basicInputEndPntX = new ParamGeoInput
         basicInputEndPntX.setValue(endPtX.toString)
         basicInputEndPntX.setParamName("endPtX")
         basicInputEndPntX.setValueType("double")
         basicInputEndPntX.assignUniqueId
 
-        val basicInputEndPntY = new BasicInput
+        val basicInputEndPntY = new ParamGeoInput
         basicInputEndPntY.setValue(endPtY.toString)
         basicInputEndPntY.setParamName("endPtY")
         basicInputEndPntY.setValueType("double")
         basicInputEndPntY.assignUniqueId
 
-        val basicInputHeight = new BasicInput
+        val basicInputHeight = new ParamGeoInput
         basicInputHeight.setValue(height.toString)
         basicInputHeight.setParamName("height")
         basicInputHeight.setValueType("double")
         basicInputHeight.assignUniqueId
 
-        val inputs: List[BasicInput] = List(basicInputStartPntX, basicInputStartPntY,
+        val inputs: List[ParamGeoInput] = List(basicInputStartPntX, basicInputStartPntY,
           basicInputEndPntX, basicInputEndPntY, basicInputHeight)
 
-        val basicFormulaStartPnt = new BasicFormula("startPt",
-          "{\"x\":\"#startPtX\"," + "\"y\":\"#startPtY\"}", "point2d")
+        val basicFormulaStartPnt = new ParamGeoFormula("startPt",
+          "{\"x\":\"#startPtX\"," + "\"y\":\"#startPtY\"}", "point2d", "start point")
         basicFormulaStartPnt.assignUniqueId
-        val basicFormulaEndPnt = new BasicFormula("endPt",
-          "{\"x\":\"#endPtX\"," + "\"y\":\"#endPtY\"}", "point2d")
+        val basicFormulaEndPnt = new ParamGeoFormula("endPt",
+          "{\"x\":\"#endPtX\"," + "\"y\":\"#endPtY\"}", "point2d", "end point")
         basicFormulaEndPnt.assignUniqueId
-        val formulas: List[BasicFormula] = List(basicFormulaStartPnt, basicFormulaEndPnt)
+        val formulas: List[ParamGeoFormula] = List(basicFormulaStartPnt, basicFormulaEndPnt)
 
         val functionInptuts: Map[String, String] = Map("startPt" -> basicFormulaStartPnt.getId,
           "endPt" -> basicFormulaEndPnt.getId, "height" -> basicInputHeight.getId)
-        val functionShell: BasicFunction = new BasicFunction(
-          "BrepModeling.createFaceByLinearExtrusion", functionInptuts.asJava)
+        val functionShell: ParamGeoFunction = new ParamGeoFunction(
+          "BrepModeling.createFaceByLinearExtrusion", functionInptuts, "Brep function to " +
+            "create shell", 0, 0)
         functionShell.assignUniqueId
 
-        val functions: List[BasicFunction] = List(functionShell)
+        val functions: List[ParamGeoFunction] = List(functionShell)
 
         val output: String = functionShell.getId
         val outputs: Set[String] = Set(output)
 
-        val script: ParamScript = ParamScript.builder.inputs(inputs.asJava)
-          .formulas(formulas.asJava)
-          .functions(functions.asJava).outputs(outputs.asJava).build
+        val scriptData = new ParamScriptData
+        scriptData.formulas = formulas
+        scriptData.inputs = inputs
+        scriptData.functions = functions
+        scriptData.savedOutputIds = outputs
+
         val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
 
-        val resultParam: ParamScriptResult = executor.execute(script)
+        val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
         val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
         val outcome = Map(
           "shellName" -> shell.getName
         )
+
+        val paramTemplate1 = GeoParamScriptParamDescData(basicInputStartPntX
+          .getParamName, basicInputStartPntX.getValueType, basicInputStartPntX.getValue)
+        val paramTemplate2 = GeoParamScriptParamDescData(basicInputStartPntY
+          .getParamName, basicInputStartPntY.getValueType, basicInputStartPntY.getValue)
+        val paramTemplate3 = GeoParamScriptParamDescData(basicInputEndPntX
+          .getParamName, basicInputEndPntX.getValueType, basicInputEndPntX.getValue)
+        val paramTemplate4 = GeoParamScriptParamDescData(basicInputEndPntY
+          .getParamName, basicInputEndPntY.getValueType, basicInputEndPntY.getValue)
+        val paramTemplate5 = GeoParamScriptParamDescData(basicInputHeight
+          .getParamName, basicInputHeight.getValueType, basicInputHeight.getValue)
+        val paramsTemplate = List(paramTemplate1, paramTemplate2, paramTemplate3, paramTemplate4,
+          paramTemplate5)
+        val scriptDataTemplateId = UUID.randomUUID.toString()
+        val scriptDataTemplate: GeoParamScriptTemplateData = GeoParamScriptTemplateData(
+          scriptDataTemplateId, scriptData,
+          GeoParamScriptDescData(paramsTemplate))
+
+        val params = Map(basicInputStartPntX.getParamName -> basicInputStartPntX.getValue,
+          basicInputStartPntY.getParamName -> basicInputStartPntY.getValue,
+          basicInputEndPntX.getParamName -> basicInputEndPntX.getValue,
+          basicInputEndPntY.getParamName -> basicInputEndPntY.getValue,
+          basicInputHeight.getParamName -> basicInputHeight.getValue)
+        val geoScriptData = GeoParamScriptData(shell.getName, GeoParamScriptRefData
+        (scriptDataTemplateId, params))
+
         mongoActor ! ADDPARAMMODEL(shell)
-        mongoActor ! ADDPARAMSCRIPT(shell.getName, script.toString)
+        mongoActor ! ADDPARAMTEMPLATESCRIPT(shell.getName, scriptDataTemplate)
+        mongoActor ! ADDPARAMSCRIPTDATA(shell.getName, geoScriptData)
         outcome
       }
       futureOutcome.map(outcome => Ok(JSONObject(outcome).toString()))

@@ -6,15 +6,17 @@
 
 package paramscript
 
-import org.mongojack.{Id, ObjectId}
+import com.fasterxml.jackson.annotation.{JsonCreator, JsonProperty}
 
 /**
   * @author jiangliu
   *
   */
-class GeoParamScriptData(@Id @ObjectId var id: String, var paramScriptData: ParamScriptData) extends
-  ParamScriptData(paramScriptData.formulas, paramScriptData.inputs,
-    paramScriptData.functions, paramScriptData.savedOrderedExecutionIds,
-    paramScriptData.savedOutputIds) {
+@JsonCreator
+case
+class GeoParamScriptData(@JsonProperty("_id") val id: String,
+  val paramScriptRefData: GeoParamScriptRefData)
 
-}
+@JsonCreator
+case
+class GeoParamScriptRefData(val scriptTemplateId: String, val params: Map[String, String])

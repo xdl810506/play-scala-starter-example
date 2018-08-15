@@ -36,5 +36,9 @@ object UsingMongo {
     }
   }
 
+  def getMongoClient: MongoClient = {
+    return mongo
+  }
+
   implicit def apply(db: String): MongoDB = mongo(db)
 }

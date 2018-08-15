@@ -6,6 +6,7 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 resolvers += "Qunhe Repository" at "http://nexus.qunhequnhe.com/repository/maven-public/"
 
 scalaVersion := "2.12.6"
@@ -26,4 +27,7 @@ libraryDependencies += "com.qunhe.diybe.utils" % "brep" % "0.10.11-SNAPSHOT"
 libraryDependencies += "com.qunhe.diybe.module" % "parametric-engine" % "0.2.0"
 libraryDependencies += "org.mongojack" % "mongojack" % "2.3.0"
 libraryDependencies += "com.qunhe.utils" % "mongoutil" % "1.1.0-SNAPSHOT"
+libraryDependencies += "com.qunhe.utils" % "log" % "1.1.0"
 libraryDependencies += "org.mongodb" % "mongodb-driver" % "3.8.0"
+libraryDependencies +=
+  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.9.7-SNAPSHOT"
