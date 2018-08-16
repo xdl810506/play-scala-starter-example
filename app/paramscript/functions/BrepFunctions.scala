@@ -14,9 +14,7 @@ import com.qunhe.diybe.module.parametric.engine.annotation.ParamFunction
 import com.qunhe.diybe.utils.brep.exceptions.ValidationException
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.topo.nm.ShellId
-import com.qunhe.diybe.utils.brep.utils.{BrepBuilder, BrepDataBuilder}
-
-import scala.collection.JavaConverters._
+import com.qunhe.diybe.utils.brep.utils.BrepBuilder
 
 /**
   * @author jiangliu
@@ -26,12 +24,12 @@ import scala.collection.JavaConverters._
 class BrepFunctions {
 
   /**
-    * get the texturePosition and build the tileComponent
+    * get the start point, end point and extrusion height, and build the Face
     *
     * @param startPt
     * @param endPt
     * @param height
-    * @return Face
+    * @return Shell
     */
   @ParamFunction("createFaceByLinearExtrusion")
   def createFaceByLinearExtrusion(

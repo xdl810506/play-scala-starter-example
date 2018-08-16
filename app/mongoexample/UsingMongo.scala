@@ -9,12 +9,13 @@ package mongoexample
 import com.mongodb.casbah.Imports.{MongoClientOptions, MongoDB, ReadPreference, ServerAddress}
 import com.mongodb.casbah.MongoClient
 import javax.inject.Inject
+import play.api.Play
 
 /**
   * Created by jiangliu on 12/08/2018.
   */
 object UsingMongo {
-  @Inject var configuration: play.api.Configuration = null
+  @Inject var configuration: play.api.Configuration = Play.current.configuration
   lazy val endpoints: String = configuration.getOptional[String]("qunhe.geoparamengine.mongo.endpoints").getOrElse("127.0.0.1:27017")
   lazy val connections = configuration.getOptional[Int]("qunhe.geoparamengine.mongo.max-cnx").getOrElse(32)
 

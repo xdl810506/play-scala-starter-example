@@ -17,6 +17,7 @@ GET     /scopes                     controllers.ScopeController.getScopes
 GET     /shell/:id                  controllers.BrepController.getShell(id)
 POST    /shell                      controllers.BrepController.createShell
 POST    /parametricshell            controllers.BrepController.createParametricShell
+PUT     /parametricshell/:id        controllers.BrepController.editParametricShell(id)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(file)

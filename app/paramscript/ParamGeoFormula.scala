@@ -26,6 +26,7 @@ class ParamGeoFormula(paramName: String,
     valueType: String,
     description: String) = {
     this(paramName, value, valueType, description)
+    setId(id)
   }
 
   def this() {
