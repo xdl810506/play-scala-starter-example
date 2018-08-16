@@ -26,8 +26,8 @@ libraryDependencies += "mysql" % "mysql-connector-java" % "8.0.12"
 libraryDependencies += "com.qunhe.diybe.utils" % "brep" % "0.10.11-SNAPSHOT"
 libraryDependencies += "com.qunhe.diybe.module" % "parametric-engine" % "0.2.0" withSources() withJavadoc()
 libraryDependencies += "org.mongojack" % "mongojack" % "2.3.0"
-libraryDependencies += "com.qunhe.utils" % "mongoutil" % "1.1.0-SNAPSHOT"
-libraryDependencies += "com.qunhe.utils" % "log" % "1.1.0"
+libraryDependencies += "com.qunhe.utils" % "mongoutil" % "1.1.0-SNAPSHOT"  withSources() withJavadoc()
+libraryDependencies += "com.qunhe.utils" % "log" % "1.1.0"  withSources() withJavadoc()
 libraryDependencies += "org.mongodb" % "mongodb-driver" % "3.8.0"
 libraryDependencies +=
   "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.9.7-SNAPSHOT"

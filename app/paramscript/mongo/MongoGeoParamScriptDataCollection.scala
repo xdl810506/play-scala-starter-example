@@ -14,7 +14,7 @@ import com.qunhe.log.Log
 import com.qunhe.utils.mongo.MongoCollection
 import org.mongojack.DBQuery
 import org.mongojack.internal.MongoJackModule
-import paramscript.GeoParamScriptTemplateData
+import paramscript.data.GeoParamScriptTemplateData
 
 /**
   * @author jiangliu

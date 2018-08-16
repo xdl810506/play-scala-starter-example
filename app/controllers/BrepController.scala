@@ -7,7 +7,6 @@
 package controllers
 
 import java.io.{PrintWriter, StringWriter}
-import java.util.UUID
 
 import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
@@ -22,7 +21,9 @@ import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
 import mongoexample._
 import paramscript._
+import paramscript.data.ParamScriptData
 import paramscript.functions.BrepFunctions
+import paramscript.helper.{ParamScriptDataBuilder, ParamScriptHelper}
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.mvc._
@@ -51,9 +52,9 @@ import scala.util.parsing.json.JSONObject
   */
 @Singleton
 class BrepController @Inject()(cc: ControllerComponents,
-  actorSystem: ActorSystem,
-  configuration: play.api.Configuration)
-  (implicit exec: ExecutionContext) extends AbstractController(cc) {
+                               actorSystem: ActorSystem,
+                               configuration: play.api.Configuration)
+                              (implicit exec: ExecutionContext) extends AbstractController(cc) {
   lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy
@@ -97,105 +98,19 @@ class BrepController @Inject()(cc: ControllerComponents,
       // https://www.playframework.com/documentation/2.6.x/ScalaAsync
       val futureOutcome = scala.concurrent.Future {
         val json = request.body.asJson.get
-        val startPtX = (json \ "startpoint" \ "x").as[Double]
-        val startPtY = (json \ "startpoint" \ "y").as[Double]
-        val endPtX = (json \ "endpoint" \ "x").as[Double]
-        val endPtY = (json \ "endpoint" \ "y").as[Double]
-        val height = (json \ "height").as[Double]
-
-        val basicInputStartPntX = new ParamGeoInput
-        basicInputStartPntX.setValue(startPtX.toString)
-        basicInputStartPntX.setParamName("startPtX")
-        basicInputStartPntX.setValueType("double")
-        basicInputStartPntX.assignUniqueId
-
-        val basicInputStartPntY = new ParamGeoInput
-        basicInputStartPntY.setValue(startPtY.toString)
-        basicInputStartPntY.setParamName("startPtY")
-        basicInputStartPntY.setValueType("double")
-        basicInputStartPntY.assignUniqueId
-
-        val basicInputEndPntX = new ParamGeoInput
-        basicInputEndPntX.setValue(endPtX.toString)
-        basicInputEndPntX.setParamName("endPtX")
-        basicInputEndPntX.setValueType("double")
-        basicInputEndPntX.assignUniqueId
-
-        val basicInputEndPntY = new ParamGeoInput
-        basicInputEndPntY.setValue(endPtY.toString)
-        basicInputEndPntY.setParamName("endPtY")
-        basicInputEndPntY.setValueType("double")
-        basicInputEndPntY.assignUniqueId
-
-        val basicInputHeight = new ParamGeoInput
-        basicInputHeight.setValue(height.toString)
-        basicInputHeight.setParamName("height")
-        basicInputHeight.setValueType("double")
-        basicInputHeight.assignUniqueId
-
-        val inputs: List[ParamGeoInput] = List(basicInputStartPntX, basicInputStartPntY,
-          basicInputEndPntX, basicInputEndPntY, basicInputHeight)
-
-        val basicFormulaStartPnt = new ParamGeoFormula("startPt",
-          "{\"x\":\"#startPtX\"," + "\"y\":\"#startPtY\"}", "point2d", "start point")
-        basicFormulaStartPnt.assignUniqueId
-        val basicFormulaEndPnt = new ParamGeoFormula("endPt",
-          "{\"x\":\"#endPtX\"," + "\"y\":\"#endPtY\"}", "point2d", "end point")
-        basicFormulaEndPnt.assignUniqueId
-        val formulas: List[ParamGeoFormula] = List(basicFormulaStartPnt, basicFormulaEndPnt)
-
-        val functionInptuts: Map[String, String] = Map("startPt" -> basicFormulaStartPnt.getId,
-          "endPt" -> basicFormulaEndPnt.getId, "height" -> basicInputHeight.getId)
-        val functionShell: ParamGeoFunction = new ParamGeoFunction(
-          "BrepModeling.createFaceByLinearExtrusion", functionInptuts, "Brep function to " +
-            "create shell", 0, 0)
-        functionShell.assignUniqueId
-
-        val functions: List[ParamGeoFunction] = List(functionShell, functionShell)
-
-        val output: String = functionShell.getId
-        val outputs: Set[String] = Set(output)
-
-        val scriptData = new ParamScriptData
-        scriptData.formulas = formulas
-        scriptData.inputs = inputs
-        scriptData.functions = functions
-        scriptData.savedOutputIds = outputs
-
+        val scriptData = ParamScriptDataBuilder.buildParamScriptDataFromJson(json)
         val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
 
         val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
+        val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
         val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
         val outcome = Map(
           "outcome" -> "new shell being created",
           "shell id" -> shell.getName
         )
 
-        val paramTemplate1 = GeoParamScriptParamDescData(basicInputStartPntX
-          .getParamName, basicInputStartPntX.getValueType, basicInputStartPntX.getValue)
-        val paramTemplate2 = GeoParamScriptParamDescData(basicInputStartPntY
-          .getParamName, basicInputStartPntY.getValueType, basicInputStartPntY.getValue)
-        val paramTemplate3 = GeoParamScriptParamDescData(basicInputEndPntX
-          .getParamName, basicInputEndPntX.getValueType, basicInputEndPntX.getValue)
-        val paramTemplate4 = GeoParamScriptParamDescData(basicInputEndPntY
-          .getParamName, basicInputEndPntY.getValueType, basicInputEndPntY.getValue)
-        val paramTemplate5 = GeoParamScriptParamDescData(basicInputHeight
-          .getParamName, basicInputHeight.getValueType, basicInputHeight.getValue)
-        val paramsTemplate = List(paramTemplate1, paramTemplate2, paramTemplate3, paramTemplate4,
-          paramTemplate5)
-        val scriptDataTemplateId = UUID.randomUUID.toString()
-        val scriptDataTemplate: GeoParamScriptTemplateData = GeoParamScriptTemplateData(
-          scriptDataTemplateId, scriptData,
-          GeoParamScriptDescData(paramsTemplate))
-
-        val params = Map(basicInputStartPntX.getParamName -> basicInputStartPntX.getValue,
-          basicInputStartPntY.getParamName -> basicInputStartPntY.getValue,
-          basicInputEndPntX.getParamName -> basicInputEndPntX.getValue,
-          basicInputEndPntY.getParamName -> basicInputEndPntY.getValue,
-          basicInputHeight.getParamName -> basicInputHeight.getValue)
-        val geoScriptData = GeoParamScriptData(shell.getName, GeoParamScriptRefData
-        (scriptDataTemplateId, params))
-
+        val (scriptDataTemplate, geoScriptData) = ParamScriptDataBuilder.
+          buildGeoParamScriptDataAndTemplateData(shell.getName, scriptData)
         mongoActor ! ADD_PARAM_MODEL(shell)
         mongoActor ! ADD_PARAM_TEMPLATE_SCRIPT(shell.getName, scriptDataTemplate)
         mongoActor ! ADD_PARAM_SCRIPT_DATA(shell.getName, geoScriptData)
@@ -213,7 +128,7 @@ class BrepController @Inject()(cc: ControllerComponents,
               " timeout after " + timeoutThreshold + " milliseconds")
             InternalServerError("timeout")
           }
-          case NonFatal(e)                          => {
+          case NonFatal(e) => {
             val sw = new StringWriter
             e.printStackTrace(new PrintWriter(sw))
             LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
@@ -247,33 +162,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                     paramScriptData)
 
                   val json = request.body.asJson.get
-                  val startPtXOpt = (json \ "startpoint" \ "x").asOpt[Double]
-                  val startPtYOpt = (json \ "startpoint" \ "y").asOpt[Double]
-                  val endPtXOpt = (json \ "endpoint" \ "x").asOpt[Double]
-                  val endPtYOpt = (json \ "endpoint" \ "y").asOpt[Double]
-                  val heightOpt = (json \ "height").asOpt[Double]
-
-                  var userInputs: Map[String, Any] = Map()
-                  (startPtXOpt, startPtYOpt) match {
-                    case (Some(startPtX), Some(startPtY)) => {
-                      userInputs += ("startPtX" -> startPtX)
-                      userInputs += ("startPtY" -> startPtY)
-                    }
-                    case _                                =>
-                  }
-                  (endPtXOpt, endPtYOpt) match {
-                    case (Some(endPtX), Some(endPtY)) => {
-                      userInputs += ("endPtX" -> endPtX)
-                      userInputs += ("endPtY" -> endPtY)
-                    }
-                    case _                            =>
-                  }
-                  heightOpt match {
-                    case Some(height) => {
-                      userInputs += ("height" -> height)
-                    }
-                    case _            =>
-                  }
+                  val userInputs = ParamScriptDataBuilder.buildUserInputsFromJson(json)
 
                   val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
                   val resultParam: ParamScriptResult = executor
@@ -281,14 +170,9 @@ class BrepController @Inject()(cc: ControllerComponents,
                   val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
                   val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
 
-                  var params: Map[String, String] = Map()
-                  for (inputParam <- scriptData.inputs) {
-                    val paramName = inputParam.getParamName
-                    val paramValue = userInputs.getOrElse(paramName, inputParam.getValue)
-                    params += (paramName -> paramValue.toString)
-                  }
-                  val geoScriptData = GeoParamScriptData(shellId,
-                    GeoParamScriptRefData(shellScriptTemplateId, params))
+                  val geoScriptData = ParamScriptDataBuilder.
+                    buildGeoParamScriptDataWithUserInputs(shellId, scriptData,
+                      userInputs, shellScriptTemplateId)
 
                   mongoActor ! EDIT_PARAM_MODEL(shellId, shell)
                   mongoActor ! EDIT_PARAM_SCRIPT_DATA(shellId, geoScriptData)
@@ -299,7 +183,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                   )
                   Ok(JSONObject(outcome).toString())
                 }
-                case _                                                 => {
+                case _ => {
                   val outcome = Map(
                     "outcome" -> "no shell template parametric script data found"
                   )
@@ -313,7 +197,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                     + timeoutThreshold + " milliseconds")
                 InternalServerError("timeout")
               }
-              case NonFatal(e)                          => {
+              case NonFatal(e) => {
                 val sw = new StringWriter
                 e.printStackTrace(new PrintWriter(sw))
                 LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
@@ -322,11 +206,11 @@ class BrepController @Inject()(cc: ControllerComponents,
               }
             }
           }
-          case _                                                             => {
+          case _ => {
             val outcome = Map(
               "outcome" -> "no shell parametric script data found"
             )
-            NotFound(JSONObject(outcome).toString())
+            scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
           }
         }
       }).recover {
@@ -335,7 +219,7 @@ class BrepController @Inject()(cc: ControllerComponents,
             + timeoutThreshold + " milliseconds")
           InternalServerError("timeout")
         }
-        case NonFatal(e)                          => {
+        case NonFatal(e) => {
           val sw = new StringWriter
           e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
@@ -364,7 +248,7 @@ class BrepController @Inject()(cc: ControllerComponents,
             )
             Ok(JSONObject(outcome).toString())
           }
-          case _                                     => {
+          case _ => {
             val outcome = Map(
               "outcome" -> "no shell data found"
             )
@@ -377,7 +261,7 @@ class BrepController @Inject()(cc: ControllerComponents,
             + timeoutThreshold + " milliseconds")
           InternalServerError("timeout")
         }
-        case NonFatal(e)                          => {
+        case NonFatal(e) => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
             .method + " " + request.uri + e.toString)
           InternalServerError(e.getMessage)

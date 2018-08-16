@@ -18,7 +18,7 @@ import com.mongodb.{DBObject, WriteConcern}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import paramscript.{GeoParamScriptData, GeoParamScriptTemplateData}
+import paramscript.data.{GeoParamScriptData, GeoParamScriptTemplateData}
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
@@ -67,7 +67,7 @@ class MongoActor extends Actor {
 
   override
   def receive: Receive = {
-    case ADD_PARAM_MODEL(shell)                                 => {
+    case ADD_PARAM_MODEL(shell) => {
       val modelId = shell.getName
       LOG.message("add " + modelId)
 
@@ -79,7 +79,7 @@ class MongoActor extends Actor {
         "modelId" -> modelId,
         "modelData" -> dbObject
       )
-      try{
+      try {
         models insert(dbo, WriteConcern.ACKNOWLEDGED)
       }
       catch {
@@ -91,7 +91,7 @@ class MongoActor extends Actor {
         }
       }
     }
-    case EDIT_PARAM_MODEL(shellId, shellNew)                    => {
+    case EDIT_PARAM_MODEL(shellId, shellNew) => {
       LOG.message("edit " + shellId)
 
       val shells: List[Shell] = List(shellNew)
@@ -136,7 +136,7 @@ class MongoActor extends Actor {
         }
       }
     }
-    case ADD_PARAM_SCRIPT_DATA(shellId, scriptData)             => {
+    case ADD_PARAM_SCRIPT_DATA(shellId, scriptData) => {
       LOG.message("add param script data for " + shellId)
       val mapper = new ObjectMapper() with ScalaObjectMapper
       mapper.registerModule(DefaultScalaModule)
@@ -155,7 +155,7 @@ class MongoActor extends Actor {
         }
       }
     }
-    case EDIT_PARAM_SCRIPT_DATA(shellId, scriptData)            => {
+    case EDIT_PARAM_SCRIPT_DATA(shellId, scriptData) => {
       LOG.message("edit param script data for " + shellId)
       val mapper = new ObjectMapper() with ScalaObjectMapper
       mapper.registerModule(DefaultScalaModule)
@@ -174,7 +174,7 @@ class MongoActor extends Actor {
         }
       }
     }
-    case GET_PARAM_MODEL(shellId)                               => {
+    case GET_PARAM_MODEL(shellId) => {
       LOG.message("get shell data for " + shellId)
       val filter = MongoDBObject("_id" -> 1, "modelId" -> 1, "modelData" -> 1)
       val query = MongoDBObject("_id" -> shellId)
@@ -186,21 +186,21 @@ class MongoActor extends Actor {
             case modelData: String => {
               sender ! Some(modelData)
             }
-            case _                 => {
+            case _ => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "shell " +
                 "data not being able to interpret as string for " + shellId)
               sender ! None
             }
           }
         }
-        case _         => {
+        case _ => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "no shell data" +
             " return from mongo query for " + shellId)
           sender ! None
         }
       }
     }
-    case GET_PARAM_SCRIPT_DATA(shellId)                         => {
+    case GET_PARAM_SCRIPT_DATA(shellId) => {
       LOG.message("get shell param script data for " + shellId)
       val filter = MongoDBObject("_id" -> 1, "paramScriptRefData" -> 1)
       val query = MongoDBObject("_id" -> "test")
@@ -213,21 +213,21 @@ class MongoActor extends Actor {
               val templateId: String = (Json.parse(paramRefData) \ "scriptTemplateId").as[String]
               sender ! Some(templateId)
             }
-            case _                    => {
+            case _ => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "shell " +
                 "param script data not being able to interpret as string for " + shellId)
               sender ! None
             }
           }
         }
-        case _         => {
+        case _ => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "no shell " +
             "param script data return from mongo query for " + shellId)
           sender ! None
         }
       }
     }
-    case GET_PARAM_TEMPLATE_SCRIPT(scriptTemplateId)            => {
+    case GET_PARAM_TEMPLATE_SCRIPT(scriptTemplateId) => {
       LOG.message("get template param script data for " + scriptTemplateId)
       val filter = MongoDBObject("_id" -> 1, "script" -> 1)
       val query = MongoDBObject("_id" -> scriptTemplateId)
@@ -239,7 +239,7 @@ class MongoActor extends Actor {
             case scriptData: String => {
               sender ! Some(scriptData)
             }
-            case _                  => {
+            case _ => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
                 "template param script data not being able to interpret as string for " +
                   scriptTemplateId)
@@ -247,7 +247,7 @@ class MongoActor extends Actor {
             }
           }
         }
-        case _         => {
+        case _ => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
             "no template param script data" +
               " return from mongo query for " + scriptTemplateId)

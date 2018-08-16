@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package paramscript
+package paramscript.data
 
 import com.fasterxml.jackson.annotation.{JsonCreator, JsonProperty}
 

@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package paramscript
+package paramscript.helper
 
 import com.qunhe.diybe.module.parametric.engine.typeconverters.TypeConverter
 import com.qunhe.diybe.module.parametric.engine.{BasicEngineModule, ParamScriptExecutor, ValueType}

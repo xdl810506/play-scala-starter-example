@@ -4,11 +4,12 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package paramscript
+package paramscript.data
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.qunhe.diybe.module.parametric.engine.ParamScript
 import com.qunhe.diybe.module.parametric.engine.nodes.{BasicFormula, BasicFunction, BasicInput}
+import paramscript.{ParamGeoFormula, ParamGeoFunction, ParamGeoInput}
 
 import scala.collection.JavaConverters._
 
