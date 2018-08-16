@@ -231,79 +231,102 @@ class BrepController @Inject()(cc: ControllerComponents,
   def editParametricShell(shellId: String) = {
     Action.async { request => {
       implicit val timeout = Timeout(timeoutThreshold milliseconds)
-      val futureRes: Future[String] = ask(mongoActor, GET_PARAM_SCRIPT_DATA(shellId)).mapTo[String]
-      futureRes.flatMap(shellScriptTemplateId => {
-        val futureRes1: Future[String] = ask(mongoActor, GET_PARAM_TEMPLATE_SCRIPT
-        (shellScriptTemplateId)).mapTo[String]
-        futureRes1.map(paramScriptData => {
-          val mapper = new ObjectMapper() with ScalaObjectMapper
-          mapper.registerModule(DefaultScalaModule)
-          val scriptData: ParamScriptData = mapper.readValue[ParamScriptData](paramScriptData)
+      val futureRes: Future[Option[String]] = ask(mongoActor, GET_PARAM_SCRIPT_DATA(shellId))
+        .mapTo[Option[String]]
+      futureRes.flatMap(shellScriptTemplateIdOpt => {
+        shellScriptTemplateIdOpt match {
+          case Some(shellScriptTemplateId) if shellScriptTemplateId.nonEmpty => {
+            val futureRes1: Future[Option[String]] = ask(mongoActor,
+              GET_PARAM_TEMPLATE_SCRIPT(shellScriptTemplateId)).mapTo[Option[String]]
+            futureRes1.map(paramScriptDataOpt => {
+              paramScriptDataOpt match {
+                case Some(paramScriptData) if paramScriptData.nonEmpty => {
+                  val mapper = new ObjectMapper() with ScalaObjectMapper
+                  mapper.registerModule(DefaultScalaModule)
+                  val scriptData: ParamScriptData = mapper.readValue[ParamScriptData](
+                    paramScriptData)
 
-          val json = request.body.asJson.get
-          val startPtXOpt = (json \ "startpoint" \ "x").asOpt[Double]
-          val startPtYOpt = (json \ "startpoint" \ "y").asOpt[Double]
-          val endPtXOpt = (json \ "endpoint" \ "x").asOpt[Double]
-          val endPtYOpt = (json \ "endpoint" \ "y").asOpt[Double]
-          val heightOpt = (json \ "height").asOpt[Double]
+                  val json = request.body.asJson.get
+                  val startPtXOpt = (json \ "startpoint" \ "x").asOpt[Double]
+                  val startPtYOpt = (json \ "startpoint" \ "y").asOpt[Double]
+                  val endPtXOpt = (json \ "endpoint" \ "x").asOpt[Double]
+                  val endPtYOpt = (json \ "endpoint" \ "y").asOpt[Double]
+                  val heightOpt = (json \ "height").asOpt[Double]
 
-          var userInputs: Map[String, Any] = Map()
-          (startPtXOpt, startPtYOpt) match {
-            case (Some(startPtX), Some(startPtY)) => {
-              userInputs += ("startPtX" -> startPtX)
-              userInputs += ("startPtY" -> startPtY)
+                  var userInputs: Map[String, Any] = Map()
+                  (startPtXOpt, startPtYOpt) match {
+                    case (Some(startPtX), Some(startPtY)) => {
+                      userInputs += ("startPtX" -> startPtX)
+                      userInputs += ("startPtY" -> startPtY)
+                    }
+                    case _                                =>
+                  }
+                  (endPtXOpt, endPtYOpt) match {
+                    case (Some(endPtX), Some(endPtY)) => {
+                      userInputs += ("endPtX" -> endPtX)
+                      userInputs += ("endPtY" -> endPtY)
+                    }
+                    case _                            =>
+                  }
+                  heightOpt match {
+                    case Some(height) => {
+                      userInputs += ("height" -> height)
+                    }
+                    case _            =>
+                  }
+
+                  val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
+                  val resultParam: ParamScriptResult = executor
+                    .execute(scriptData.toParamScript, userInputs.asJava)
+                  val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
+                  val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
+
+                  var params: Map[String, String] = Map()
+                  for (inputParam <- scriptData.inputs) {
+                    val paramName = inputParam.getParamName
+                    val paramValue = userInputs.getOrElse(paramName, inputParam.getValue)
+                    params += (paramName -> paramValue.toString)
+                  }
+                  val geoScriptData = GeoParamScriptData(shellId,
+                    GeoParamScriptRefData(shellScriptTemplateId, params))
+
+                  mongoActor ! EDIT_PARAM_MODEL(shellId, shell)
+                  mongoActor ! EDIT_PARAM_SCRIPT_DATA(shellId, geoScriptData)
+
+                  val outcome = Map(
+                    "outcome" -> "shell being updated",
+                    "shell id" -> shellId
+                  )
+                  Ok(JSONObject(outcome).toString())
+                }
+                case _                                                 => {
+                  val outcome = Map(
+                    "outcome" -> "no shell template parametric script data found"
+                  )
+                  NotFound(JSONObject(outcome).toString())
+                }
+              }
+            }).recover {
+              case e: scala.concurrent.TimeoutException => {
+                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "",
+                  request.method + "timeout after "
+                    + timeoutThreshold + " milliseconds")
+                InternalServerError("timeout")
+              }
+              case NonFatal(e)                          => {
+                val sw = new StringWriter
+                e.printStackTrace(new PrintWriter(sw))
+                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+                  .method + " " + request.uri + sw.toString)
+                InternalServerError(e.toString)
+              }
             }
-            case _                                =>
           }
-          (endPtXOpt, endPtYOpt) match {
-            case (Some(endPtX), Some(endPtY)) => {
-              userInputs += ("endPtX" -> endPtX)
-              userInputs += ("endPtY" -> endPtY)
-            }
-            case _                            =>
-          }
-          heightOpt match {
-            case Some(height) => {
-              userInputs += ("height" -> height)
-            }
-            case _            =>
-          }
-
-          val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
-          val resultParam: ParamScriptResult = executor
-            .execute(scriptData.toParamScript, userInputs.asJava)
-          val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
-          val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
-
-          var params: Map[String, String] = Map()
-          for (inputParam <- scriptData.inputs) {
-            val paramName = inputParam.getParamName
-            val paramValue = userInputs.getOrElse(paramName, inputParam.getValue)
-            params += (paramName -> paramValue.toString)
-          }
-          val geoScriptData = GeoParamScriptData(shellId,
-            GeoParamScriptRefData(shellScriptTemplateId, params))
-
-          mongoActor ! EDIT_PARAM_MODEL(shellId, shell)
-          mongoActor ! EDIT_PARAM_SCRIPT_DATA(shellId, geoScriptData)
-
-          val outcome = Map(
-            "outcome" -> "shell being updated",
-            "shell id" -> shellId
-          )
-          Ok(JSONObject(outcome).toString())
-        }).recover {
-          case e: scala.concurrent.TimeoutException => {
-            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "", request.method + "timeout after "
-              + timeoutThreshold + " milliseconds")
-            InternalServerError("timeout")
-          }
-          case NonFatal(e)                          => {
-            val sw = new StringWriter
-            e.printStackTrace(new PrintWriter(sw))
-            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-              .method + " " + request.uri + sw.toString)
-            InternalServerError(e.toString)
+          case _                                                             => {
+            val outcome = Map(
+              "outcome" -> "no shell parametric script data found"
+            )
+            NotFound(JSONObject(outcome).toString())
           }
         }
       }).recover {
@@ -330,12 +353,24 @@ class BrepController @Inject()(cc: ControllerComponents,
   def getShell(shellId: String) = {
     Action.async { request => {
       implicit val timeout = Timeout(timeoutThreshold milliseconds)
-      val futureRes: Future[String] = ask(mongoActor, GET_PARAM_MODEL(shellId)).mapTo[String]
-      futureRes.map(shelldata => {
-        val outcome = Map(
-          "shell data" -> shelldata
-        )
-        Ok(JSONObject(outcome).toString())
+      val futureRes: Future[Option[String]] = ask(mongoActor, GET_PARAM_MODEL(shellId))
+        .mapTo[Option[String]]
+      futureRes.map(shelldataOpt => {
+        shelldataOpt match {
+          case Some(shelldata) if shelldata.nonEmpty => {
+            val outcome = Map(
+              "outcome" -> "shell data found",
+              "shell data" -> shelldata
+            )
+            Ok(JSONObject(outcome).toString())
+          }
+          case _                                     => {
+            val outcome = Map(
+              "outcome" -> "no shell data found"
+            )
+            NotFound(JSONObject(outcome).toString())
+          }
+        }
       }).recover {
         case e: scala.concurrent.TimeoutException => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "", request.method + "timeout after "

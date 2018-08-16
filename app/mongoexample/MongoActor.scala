@@ -184,26 +184,26 @@ class MongoActor extends Actor {
 
           fields get ("modelData") toString match {
             case modelData: String => {
-              sender ! modelData
+              sender ! Some(modelData)
             }
             case _                 => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "shell " +
                 "data not being able to interpret as string for " + shellId)
-              sender ! ""
+              sender ! None
             }
           }
         }
         case _         => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "no shell data" +
             " return from mongo query for " + shellId)
-          sender ! ""
+          sender ! None
         }
       }
     }
     case GET_PARAM_SCRIPT_DATA(shellId)                         => {
       LOG.message("get shell param script data for " + shellId)
       val filter = MongoDBObject("_id" -> 1, "paramScriptRefData" -> 1)
-      val query = MongoDBObject("_id" -> shellId)
+      val query = MongoDBObject("_id" -> "test")
       scripts findOne(query, filter) match {
         case Some(dbo) => {
           val fields = dbo toMap
@@ -211,19 +211,19 @@ class MongoActor extends Actor {
           fields get ("paramScriptRefData") toString match {
             case paramRefData: String => {
               val templateId: String = (Json.parse(paramRefData) \ "scriptTemplateId").as[String]
-              sender ! templateId
+              sender ! Some(templateId)
             }
             case _                    => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "shell " +
                 "param script data not being able to interpret as string for " + shellId)
-              sender ! ""
+              sender ! None
             }
           }
         }
         case _         => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "no shell " +
             "param script data return from mongo query for " + shellId)
-          sender ! ""
+          sender ! None
         }
       }
     }
@@ -237,13 +237,13 @@ class MongoActor extends Actor {
 
           fields get ("script") toString match {
             case scriptData: String => {
-              sender ! scriptData
+              sender ! Some(scriptData)
             }
             case _                  => {
               LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
                 "template param script data not being able to interpret as string for " +
                   scriptTemplateId)
-              sender ! ""
+              sender ! None
             }
           }
         }
@@ -251,7 +251,7 @@ class MongoActor extends Actor {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
             "no template param script data" +
               " return from mongo query for " + scriptTemplateId)
-          sender ! ""
+          sender ! None
         }
       }
     }
