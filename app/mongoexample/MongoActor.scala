@@ -51,6 +51,8 @@ class MongoActor extends Actor {
   lazy val templateScripts = UsingMongo("parammodel")("GeoParamScriptTemplateData")
   lazy val scripts = UsingMongo("parammodel")("GeoParamScriptData")
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[MongoActor])
+  val mapper = new ObjectMapper() with ScalaObjectMapper
+  mapper.registerModule(DefaultScalaModule)
 
   /*import com.mongodb.DB
 
@@ -61,7 +63,7 @@ class MongoActor extends Actor {
   def receive: Receive = {
     case ADD_PARAM_MODEL(shell) => {
       val modelId = shell.getName
-      LOG.message("add " + modelId)
+      LOG.message("add " + modelId).debug()
 
       val shells: List[Shell] = List(shell)
       val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
@@ -84,7 +86,7 @@ class MongoActor extends Actor {
       }
     }
     case EDIT_PARAM_MODEL(shellId, shellNew) => {
-      LOG.message("edit " + shellId)
+      LOG.message("edit " + shellId).debug()
 
       val shells: List[Shell] = List(shellNew)
       val newShellId = shellNew.getName
@@ -110,11 +112,8 @@ class MongoActor extends Actor {
       }
     }
     case ADD_PARAM_TEMPLATE_SCRIPT(shellId, scriptTemplateData) => {
-      LOG.message("add param template script for " + shellId)
-      val mapper = new ObjectMapper() with ScalaObjectMapper
-      mapper.registerModule(DefaultScalaModule)
+      LOG.message("add param template script for " + shellId).debug()
       val scriptTemplateJson = mapper.writeValueAsString(scriptTemplateData)
-
       val dbObject: DBObject = JSON.parse(scriptTemplateJson).asInstanceOf[DBObject]
       try {
         templateScripts insert(dbObject, WriteConcern.ACKNOWLEDGED)
@@ -129,11 +128,8 @@ class MongoActor extends Actor {
       }
     }
     case ADD_PARAM_SCRIPT_DATA(shellId, scriptData) => {
-      LOG.message("add param script data for " + shellId)
-      val mapper = new ObjectMapper() with ScalaObjectMapper
-      mapper.registerModule(DefaultScalaModule)
+      LOG.message("add param script data for " + shellId).debug()
       val scriptTemplateJson = mapper.writeValueAsString(scriptData)
-
       val dbObject: DBObject = JSON.parse(scriptTemplateJson).asInstanceOf[DBObject]
       try {
         scripts insert(dbObject, WriteConcern.ACKNOWLEDGED)
@@ -148,11 +144,8 @@ class MongoActor extends Actor {
       }
     }
     case EDIT_PARAM_SCRIPT_DATA(shellId, scriptData) => {
-      LOG.message("edit param script data for " + shellId)
-      val mapper = new ObjectMapper() with ScalaObjectMapper
-      mapper.registerModule(DefaultScalaModule)
+      LOG.message("edit param script data for " + shellId).debug()
       val scriptTemplateJson = mapper.writeValueAsString(scriptData)
-
       val dbObject: DBObject = JSON.parse(scriptTemplateJson).asInstanceOf[DBObject]
       val query = MongoDBObject("_id" -> shellId)
       try {
@@ -167,7 +160,7 @@ class MongoActor extends Actor {
       }
     }
     case GET_PARAM_MODEL(shellId) => {
-      LOG.message("get shell data for " + shellId)
+      LOG.message("get shell data for " + shellId).debug()
       val filter = MongoDBObject("_id" -> 1, "modelId" -> 1, "modelData" -> 1)
       val query = MongoDBObject("_id" -> shellId)
       models findOne(query, filter) match {
@@ -193,7 +186,7 @@ class MongoActor extends Actor {
       }
     }
     case GET_PARAM_SCRIPT_DATA(shellId) => {
-      LOG.message("get shell param script data for " + shellId)
+      LOG.message("get shell param script data for " + shellId).debug()
       val filter = MongoDBObject("_id" -> 1, "paramScriptRefData" -> 1)
       val query = MongoDBObject("_id" -> shellId)
       scripts findOne(query, filter) match {
@@ -220,7 +213,7 @@ class MongoActor extends Actor {
       }
     }
     case GET_PARAM_TEMPLATE_SCRIPT(scriptTemplateId) => {
-      LOG.message("get template param script data for " + scriptTemplateId)
+      LOG.message("get template param script data for " + scriptTemplateId).debug()
       val filter = MongoDBObject("_id" -> 1, "script" -> 1)
       val query = MongoDBObject("_id" -> scriptTemplateId)
       templateScripts findOne(query, filter) match {
