@@ -57,8 +57,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                               (implicit exec: ExecutionContext) extends AbstractController(cc) {
   lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
-  lazy
-  val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
+  lazy val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
     ".timeout").getOrElse(3000)
 
   /**
@@ -122,18 +121,22 @@ class BrepController @Inject()(cc: ControllerComponents,
         .map(outcome => Ok(JSONObject(outcome).toString()))
         .recover {
           case e: scala.concurrent.TimeoutException => {
-            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-              .method + " " +
-              request.uri +
-              " timeout after " + timeoutThreshold + " milliseconds")
-            InternalServerError("timeout")
+            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
+              request.method + " " + request.uri + " timeout after " + timeoutThreshold + " milliseconds")
+            val outcome = Map(
+              "outcome" -> "request timeout"
+            )
+            InternalServerError(JSONObject(outcome).toString())
           }
           case NonFatal(e) => {
             val sw = new StringWriter
             e.printStackTrace(new PrintWriter(sw))
             LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-              .method + " " + request.uri + sw.toString)
-            InternalServerError(e.getMessage)
+              .method + " " + request.uri + " " + sw.toString)
+            val outcome = Map(
+              "outcome" -> ("server error: " + e.getMessage)
+            )
+            InternalServerError(JSONObject(outcome).toString())
           }
         }
     }
@@ -192,17 +195,23 @@ class BrepController @Inject()(cc: ControllerComponents,
               }
             }).recover {
               case e: scala.concurrent.TimeoutException => {
-                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "",
-                  request.method + "timeout after "
+                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
+                  request.method + " " + request.uri + " " + "timeout after "
                     + timeoutThreshold + " milliseconds")
-                InternalServerError("timeout")
+                val outcome = Map(
+                  "outcome" -> "request timeout"
+                )
+                InternalServerError(JSONObject(outcome).toString())
               }
               case NonFatal(e) => {
                 val sw = new StringWriter
                 e.printStackTrace(new PrintWriter(sw))
                 LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-                  .method + " " + request.uri + sw.toString)
-                InternalServerError(e.toString)
+                  .method + " " + request.uri + " " + sw.toString)
+                val outcome = Map(
+                  "outcome" -> ("server error: " + e.getMessage)
+                )
+                InternalServerError(JSONObject(outcome).toString())
               }
             }
           }
@@ -215,16 +224,23 @@ class BrepController @Inject()(cc: ControllerComponents,
         }
       }).recover {
         case e: scala.concurrent.TimeoutException => {
-          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "", request.method + "timeout after "
+          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+            .method + " " + request.uri + " " + "timeout after "
             + timeoutThreshold + " milliseconds")
-          InternalServerError("timeout")
+          val outcome = Map(
+            "outcome" -> "request timeout"
+          )
+          InternalServerError(JSONObject(outcome).toString())
         }
         case NonFatal(e) => {
           val sw = new StringWriter
           e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + sw.toString)
-          InternalServerError(e.getMessage)
+            .method + " " + request.uri + " " + sw.toString)
+          val outcome = Map(
+            "outcome" -> ("server error: " + e.getMessage)
+          )
+          InternalServerError(JSONObject(outcome).toString())
         }
       }
     }
@@ -257,14 +273,23 @@ class BrepController @Inject()(cc: ControllerComponents,
         }
       }).recover {
         case e: scala.concurrent.TimeoutException => {
-          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "", request.method + "timeout after "
+          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+            .method + " " + request.uri + " timeout after "
             + timeoutThreshold + " milliseconds")
-          InternalServerError("timeout")
+          val outcome = Map(
+            "outcome" -> "request timeout"
+          )
+          InternalServerError(JSONObject(outcome).toString())
         }
         case NonFatal(e) => {
+          val sw = new StringWriter
+          e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + e.toString)
-          InternalServerError(e.getMessage)
+            .method + " " + request.uri + " " + sw.toString)
+          val outcome = Map(
+            "outcome" -> ("server error: " + e.getMessage)
+          )
+          InternalServerError(JSONObject(outcome).toString())
         }
       }
     }
