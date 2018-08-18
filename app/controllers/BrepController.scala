@@ -17,15 +17,18 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.qunhe.diybe.module.math2.base.Point2d
 import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
+import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
 import mongoexample._
-import paramscript._
+import mongoexample.dal.ModelDataRepository
+import mongoexample.models.ModelDataInfo
 import paramscript.data.ParamScriptData
 import paramscript.functions.BrepFunctions
 import paramscript.helper.{ParamScriptDataBuilder, ParamScriptHelper}
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
+import play.api.libs.json.Json
 import play.api.mvc._
 
 import scala.collection.JavaConverters._
@@ -52,6 +55,7 @@ import scala.util.parsing.json.JSONObject
   */
 @Singleton
 class BrepController @Inject()(cc: ControllerComponents,
+                               modelDataRepo: ModelDataRepository,
                                actorSystem: ActorSystem,
                                configuration: play.api.Configuration)
                               (implicit exec: ExecutionContext) extends AbstractController(cc) {
@@ -69,22 +73,23 @@ class BrepController @Inject()(cc: ControllerComponents,
       // deal with the expected concurrency. -- you usually get
       // that by injecting it into your controller's constructor
       // https://www.playframework.com/documentation/2.6.x/ScalaAsync
-      val futureOutcome = scala.concurrent.Future {
-        val json = request.body.asJson.get
-        val startPtX = (json \ "startpoint" \ "x").as[Double]
-        val startPtY = (json \ "startpoint" \ "y").as[Double]
-        val endPtX = (json \ "endpoint" \ "x").as[Double]
-        val endPtY = (json \ "endpoint" \ "y").as[Double]
-        val height = (json \ "height").as[Double]
-        val shell: Shell = (new BrepFunctions).createFaceByLinearExtrusion(new Point2d(startPtX,
-          startPtY), new Point2d(endPtX, endPtY), height)
-        val outcome = Map(
-          "shellName" -> shell.getName
-        )
-        mongoActor ! ADD_PARAM_MODEL(shell)
-        outcome
+      val json = request.body.asJson.get
+      val startPtX = (json \ "startpoint" \ "x").as[Double]
+      val startPtY = (json \ "startpoint" \ "y").as[Double]
+      val endPtX = (json \ "endpoint" \ "x").as[Double]
+      val endPtY = (json \ "endpoint" \ "y").as[Double]
+      val height = (json \ "height").as[Double]
+      val shell: Shell = (new BrepFunctions).createFaceByLinearExtrusion(new Point2d(startPtX,
+        startPtY), new Point2d(endPtX, endPtY), height)
+      val outcome = Map(
+        "shellName" -> shell.getName
+      )
+      //mongoActor ! ADD_PARAM_MODEL(shell)
+      val shells: List[Shell] = List(shell)
+      val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
+      modelDataRepo.addModelDataInfo(ModelDataInfo(shell.getName, shell.getName, Json.parse(modelData))).map { _ =>
+        Ok(JSONObject(outcome).toString())
       }
-      futureOutcome.map(outcome => Ok(JSONObject(outcome).toString()))
     }
     }
   }
