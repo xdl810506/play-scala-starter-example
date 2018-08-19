@@ -14,12 +14,12 @@ import com.qunhe.diybe.module.parametric.engine.nodes.BasicInput
   *
   */
 @JsonCreator
-class ParamGeoInput(paramName: String,
-  value: String,
-  valueType: String,
-  var maxValue: String,
-  var minValue: String,
-  var description: String)
+class ModelParamInput(paramName: String,
+                      value: String,
+                      valueType: String,
+                      var maxValue: String,
+                      var minValue: String,
+                      var description: String)
   extends BasicInput(paramName, value, valueType) {
   def this() {
     this("", "", "", "", "", "")

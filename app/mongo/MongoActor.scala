@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package mongoexample
+package mongo
 
 import java.io.{PrintWriter, StringWriter}
 
@@ -18,7 +18,7 @@ import com.mongodb.{DBObject, WriteConcern}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import paramscript.data.{GeoParamScriptData, GeoParamScriptTemplateData}
+import mongo.models.{ModelParamData, ModelParamTemplateData}
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
@@ -31,9 +31,9 @@ import scala.util.control.NonFatal
 
 case class ADD_PARAM_MODEL(shell: Shell)
 
-case class ADD_PARAM_TEMPLATE_SCRIPT(shellId: String, scriptTemplateData: GeoParamScriptTemplateData)
+case class ADD_PARAM_TEMPLATE_SCRIPT(shellId: String, scriptTemplateData: ModelParamTemplateData)
 
-case class ADD_PARAM_SCRIPT_DATA(shellId: String, scriptData: GeoParamScriptData)
+case class ADD_PARAM_SCRIPT_DATA(shellId: String, scriptData: ModelParamData)
 
 case class GET_PARAM_MODEL(shellId: String)
 
@@ -43,7 +43,7 @@ case class GET_PARAM_TEMPLATE_SCRIPT(scriptTemplateId: String)
 
 case class EDIT_PARAM_MODEL(shellId: String, shellNew: Shell)
 
-case class EDIT_PARAM_SCRIPT_DATA(shellId: String, scriptData: GeoParamScriptData)
+case class EDIT_PARAM_SCRIPT_DATA(shellId: String, scriptData: ModelParamData)
 
 
 class MongoActor extends Actor {

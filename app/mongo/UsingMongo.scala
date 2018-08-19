@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package mongoexample
+package mongo
 
 import com.mongodb.casbah.Imports.{MongoClientOptions, MongoDB, ReadPreference, ServerAddress}
 import com.mongodb.casbah.MongoClient

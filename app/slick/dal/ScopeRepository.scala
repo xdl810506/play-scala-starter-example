@@ -4,14 +4,14 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package slickexample.dal
+package slick.dal
 
 import javax.inject.{Inject, Singleton}
 import org.slf4j.LoggerFactory
 import play.api.db.slick.DatabaseConfigProvider
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slickexample.models.ScopeInfo
+import slick.models.ScopeInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 

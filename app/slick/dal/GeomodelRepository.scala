@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package slickexample.dal
+package slick.dal
 
 import java.sql.Timestamp
 
@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import play.api.db.slick.DatabaseConfigProvider
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slickexample.models.{GeomodelInfo, ScopeInfo}
+import slick.models.{GeomodelInfo, ScopeInfo}
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -9,31 +9,25 @@ package controllers
 import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.{ActorSystem, Props}
-import akka.pattern.ask
-import akka.util.Timeout
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.qunhe.diybe.module.math2.base.Point2d
 import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
-import mongoexample._
-import mongoexample.dal.ModelDataRepository
-import mongoexample.models.ModelDataInfo
-import paramscript.data.ParamScriptData
+import mongo._
+import mongo.dal.{ModelDataRepository, ModelParamDataRepository, ModelParamTemplateDataRepository}
+import mongo.models.ModelData
 import paramscript.functions.BrepFunctions
-import paramscript.helper.{ParamScriptDataBuilder, ParamScriptHelper}
+import paramscript.helper.{ModelParamDataBuilder, ParamScriptHelper}
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.libs.json.Json
 import play.api.mvc._
 
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.parsing.json.JSONObject
@@ -56,6 +50,8 @@ import scala.util.parsing.json.JSONObject
 @Singleton
 class BrepController @Inject()(cc: ControllerComponents,
                                modelDataRepo: ModelDataRepository,
+                               modelParamDataRepo: ModelParamDataRepository,
+                               modelParamTemplateDataRepo: ModelParamTemplateDataRepository,
                                actorSystem: ActorSystem,
                                configuration: play.api.Configuration)
                               (implicit exec: ExecutionContext) extends AbstractController(cc) {
@@ -87,7 +83,7 @@ class BrepController @Inject()(cc: ControllerComponents,
       //mongoActor ! ADD_PARAM_MODEL(shell)
       val shells: List[Shell] = List(shell)
       val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
-      modelDataRepo.addModelDataInfo(ModelDataInfo(shell.getName, shell.getName, Json.parse(modelData))).map { _ =>
+      modelDataRepo.addModelData(ModelData(shell.getName, shell.getName, Json.parse(modelData))).map { _ =>
         Ok(JSONObject(outcome).toString())
       }
     }
@@ -100,29 +96,33 @@ class BrepController @Inject()(cc: ControllerComponents,
       // deal with the expected concurrency. -- you usually get
       // that by injecting it into your controller's constructor
       // https://www.playframework.com/documentation/2.6.x/ScalaAsync
-      val futureOutcome = scala.concurrent.Future {
-        val json = request.body.asJson.get
-        val scriptData = ParamScriptDataBuilder.buildParamScriptDataFromJson(json)
-        val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
+      val json = request.body.asJson.get
+      val scriptData = ParamScriptHelper.buildParamScriptDataFromJson(json)
+      val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
 
-        val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
-        val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
-        val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
-        val outcome = Map(
-          "outcome" -> "new shell being created",
-          "shell id" -> shell.getName
-        )
+      val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
+      val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
+      val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
 
-        val (scriptDataTemplate, geoScriptData) = ParamScriptDataBuilder.
-          buildGeoParamScriptDataAndTemplateData(shell.getName, scriptData)
-        mongoActor ! ADD_PARAM_MODEL(shell)
-        mongoActor ! ADD_PARAM_TEMPLATE_SCRIPT(shell.getName, scriptDataTemplate)
-        mongoActor ! ADD_PARAM_SCRIPT_DATA(shell.getName, geoScriptData)
-        outcome
-      }
+      val (modelParamTemplateData, modelParamData) = ModelParamDataBuilder.
+        buildModelParamAndTemplateData(shell.getName, scriptData)
+
+      val shells: List[Shell] = List(shell)
+      val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
+      val addModelDataRes = modelDataRepo.addModelData(ModelData(shell.getName, shell.getName, Json.parse(modelData)))
+      val addModelParamDataRes = modelParamDataRepo.addModelParmData(modelParamData)
+      val addModelParamTemplateDataRes = modelParamTemplateDataRepo.addModelParmTemplateData(modelParamTemplateData)
+      val result = for {
+        r1 <- addModelDataRes
+        r2 <- addModelParamDataRes
+        r3 <- addModelParamTemplateDataRes
+      } yield (Map(
+        "outcome" -> "new shell being created",
+        "shell id" -> shell.getName
+      ))
 
       implicit val futures = Futures.actorSystemToFutures(actorSystem)
-      futureOutcome.withTimeout(timeoutThreshold milliseconds)
+      result.withTimeout(timeoutThreshold milliseconds)
         .map(outcome => Ok(JSONObject(outcome).toString()))
         .recover {
           case e: scala.concurrent.TimeoutException => {
@@ -153,76 +153,104 @@ class BrepController @Inject()(cc: ControllerComponents,
     */
   def editParametricShell(shellId: String) = {
     Action.async { request => {
-      implicit val timeout = Timeout(timeoutThreshold milliseconds)
-      val futureRes: Future[Option[String]] = ask(mongoActor, GET_PARAM_SCRIPT_DATA(shellId))
-        .mapTo[Option[String]]
-      futureRes.flatMap(shellScriptTemplateIdOpt => {
-        shellScriptTemplateIdOpt match {
-          case Some(shellScriptTemplateId) if shellScriptTemplateId.nonEmpty => {
-            val futureRes1: Future[Option[String]] = ask(mongoActor,
-              GET_PARAM_TEMPLATE_SCRIPT(shellScriptTemplateId)).mapTo[Option[String]]
-            futureRes1.map(paramScriptDataOpt => {
-              paramScriptDataOpt match {
-                case Some(paramScriptData) if paramScriptData.nonEmpty => {
-                  val mapper = new ObjectMapper() with ScalaObjectMapper
-                  mapper.registerModule(DefaultScalaModule)
-                  val scriptData: ParamScriptData = mapper.readValue[ParamScriptData](
-                    paramScriptData)
+      modelParamDataRepo.getModelParamData(shellId).flatMap(modelParamDataOpt => {
+        modelParamDataOpt match {
+          case Some(modelParamData) => {
+            val scriptTemplateId: String = modelParamData.paramRefData.scriptTemplateId
+            if (scriptTemplateId.nonEmpty) {
+              modelParamTemplateDataRepo.getModelParamTemplateData(scriptTemplateId).flatMap(modelParamTemplateDataOpt => {
+                modelParamTemplateDataOpt match {
+                  case Some(modelParamTemplateData) => {
+                    val scriptData = modelParamTemplateData.parmScript
+                    val json = request.body.asJson.get
+                    val userInputs = ParamScriptHelper.buildUserInputsFromJson(json)
 
-                  val json = request.body.asJson.get
-                  val userInputs = ParamScriptDataBuilder.buildUserInputsFromJson(json)
+                    val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
+                    val resultParam: ParamScriptResult = executor
+                      .execute(scriptData.toParamScript, userInputs.asJava)
+                    val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
+                    val shellNew: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
 
-                  val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
-                  val resultParam: ParamScriptResult = executor
-                    .execute(scriptData.toParamScript, userInputs.asJava)
-                  val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
-                  val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
+                    val shells: List[Shell] = List(shellNew)
+                    val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
+                    val modelDataNew = modelData.replaceAll(shellNew.getName, shellId);
 
-                  val geoScriptData = ParamScriptDataBuilder.
-                    buildGeoParamScriptDataWithUserInputs(shellId, scriptData,
-                      userInputs, shellScriptTemplateId)
+                    val modelParamData = ModelParamDataBuilder.
+                      buildModelParamDataWithUserInputs(shellId, scriptData,
+                        userInputs, scriptTemplateId)
 
-                  mongoActor ! EDIT_PARAM_MODEL(shellId, shell)
-                  mongoActor ! EDIT_PARAM_SCRIPT_DATA(shellId, geoScriptData)
+                    val editModelDataRes = modelDataRepo.updateModelData(shellId, ModelData(shellId, shellId, Json.parse(modelDataNew)))
+                    val editModelParamDataRes = modelParamDataRepo.updateModelParamData(shellId, modelParamData)
+                    val result = for {
+                      r1 <- editModelDataRes
+                      r2 <- editModelParamDataRes
+                    } yield (Map(
+                      "outcome" -> "shell being updated",
+                      "shell id" -> shellId
+                    ))
 
-                  val outcome = Map(
-                    "outcome" -> "shell being updated",
-                    "shell id" -> shellId
-                  )
-                  Ok(JSONObject(outcome).toString())
+                    implicit val futures = Futures.actorSystemToFutures(actorSystem)
+                    result.withTimeout(timeoutThreshold milliseconds)
+                      .map(outcome => Ok(JSONObject(outcome).toString()))
+                      .recover {
+                        case e: scala.concurrent.TimeoutException => {
+                          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
+                            request.method + " " + request.uri + " timeout after " + timeoutThreshold + " milliseconds")
+                          val outcome = Map(
+                            "outcome" -> "request timeout"
+                          )
+                          InternalServerError(JSONObject(outcome).toString())
+                        }
+                        case NonFatal(e) => {
+                          val sw = new StringWriter
+                          e.printStackTrace(new PrintWriter(sw))
+                          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+                            .method + " " + request.uri + " " + sw.toString)
+                          val outcome = Map(
+                            "outcome" -> ("server error: " + e.getMessage)
+                          )
+                          InternalServerError(JSONObject(outcome).toString())
+                        }
+                      }
+                  }
+                  case None => {
+                    val outcome = Map(
+                      "outcome" -> "no model param template data found"
+                    )
+                    scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
+                  }
                 }
-                case _ => {
+              }).recover {
+                case e: scala.concurrent.TimeoutException => {
+                  LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
+                    request.method + " " + request.uri + " " + "timeout after "
+                      + timeoutThreshold + " milliseconds")
                   val outcome = Map(
-                    "outcome" -> "no shell template parametric script data found"
+                    "outcome" -> "request timeout"
                   )
-                  NotFound(JSONObject(outcome).toString())
+                  InternalServerError(JSONObject(outcome).toString())
+                }
+                case NonFatal(e) => {
+                  val sw = new StringWriter
+                  e.printStackTrace(new PrintWriter(sw))
+                  LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+                    .method + " " + request.uri + " " + sw.toString)
+                  val outcome = Map(
+                    "outcome" -> ("server error: " + e.getMessage)
+                  )
+                  InternalServerError(JSONObject(outcome).toString())
                 }
               }
-            }).recover {
-              case e: scala.concurrent.TimeoutException => {
-                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
-                  request.method + " " + request.uri + " " + "timeout after "
-                    + timeoutThreshold + " milliseconds")
-                val outcome = Map(
-                  "outcome" -> "request timeout"
-                )
-                InternalServerError(JSONObject(outcome).toString())
-              }
-              case NonFatal(e) => {
-                val sw = new StringWriter
-                e.printStackTrace(new PrintWriter(sw))
-                LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-                  .method + " " + request.uri + " " + sw.toString)
-                val outcome = Map(
-                  "outcome" -> ("server error: " + e.getMessage)
-                )
-                InternalServerError(JSONObject(outcome).toString())
-              }
+            } else {
+              val outcome = Map(
+                "outcome" -> "no model param template id found"
+              )
+              scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
             }
           }
-          case _ => {
+          case None => {
             val outcome = Map(
-              "outcome" -> "no shell parametric script data found"
+              "outcome" -> "no model param data found"
             )
             scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
           }
@@ -257,26 +285,25 @@ class BrepController @Inject()(cc: ControllerComponents,
     */
   def getShell(shellId: String) = {
     Action.async { request => {
-      implicit val timeout = Timeout(timeoutThreshold milliseconds)
-      val futureRes: Future[Option[String]] = ask(mongoActor, GET_PARAM_MODEL(shellId))
-        .mapTo[Option[String]]
-      futureRes.map(shelldataOpt => {
-        shelldataOpt match {
-          case Some(shelldata) if shelldata.nonEmpty => {
-            val outcome = Map(
-              "outcome" -> "shell data found",
-              "shell data" -> shelldata
-            )
-            Ok(JSONObject(outcome).toString())
+      implicit val futures = Futures.actorSystemToFutures(actorSystem)
+      modelDataRepo.getModelData(shellId).withTimeout(timeoutThreshold milliseconds)
+        .map(shelldataOpt => {
+          shelldataOpt match {
+            case Some(shelldata) => {
+              val outcome = Map(
+                "outcome" -> "shell data found",
+                "shell data" -> shelldata.modelData.toString
+              )
+              Ok(JSONObject(outcome).toString())
+            }
+            case _ => {
+              val outcome = Map(
+                "outcome" -> "no shell data found"
+              )
+              NotFound(JSONObject(outcome).toString())
+            }
           }
-          case _ => {
-            val outcome = Map(
-              "outcome" -> "no shell data found"
-            )
-            NotFound(JSONObject(outcome).toString())
-          }
-        }
-      }).recover {
+        }).recover {
         case e: scala.concurrent.TimeoutException => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
             .method + " " + request.uri + " timeout after "

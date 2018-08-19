@@ -9,7 +9,7 @@ package paramscript.data
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.qunhe.diybe.module.parametric.engine.ParamScript
 import com.qunhe.diybe.module.parametric.engine.nodes.{BasicFormula, BasicFunction, BasicInput}
-import paramscript.{ParamGeoFormula, ParamGeoFunction, ParamGeoInput}
+import paramscript.{ModelParamFormula, ModelParamFunction, ModelParamInput}
 
 import scala.collection.JavaConverters._
 
@@ -18,19 +18,19 @@ import scala.collection.JavaConverters._
   *
   */
 @JsonCreator
-class ParamScriptData(var formulas: List[ParamGeoFormula],
-                      var inputs: List[ParamGeoInput],
-                      var functions: List[ParamGeoFunction],
+class ParamScriptData(var formulas: List[ModelParamFormula],
+                      var inputs: List[ModelParamInput],
+                      var functions: List[ModelParamFunction],
                       var savedOrderedExecutionIds: List[String],
                       var savedOutputIds: Set[String]) {
   def toParamScript: ParamScript = {
     val script = new ParamScript
-    script.setInputs(inputs.map((input: ParamGeoInput) => input.asInstanceOf[BasicInput]).asJava)
+    script.setInputs(inputs.map((input: ModelParamInput) => input.asInstanceOf[BasicInput]).asJava)
     script
       .setFormulas(
-        formulas.map((formula: ParamGeoFormula) => formula.asInstanceOf[BasicFormula]).asJava)
+        formulas.map((formula: ModelParamFormula) => formula.asInstanceOf[BasicFormula]).asJava)
     script.setFunctions(
-      functions.map((function: ParamGeoFunction) => function.asInstanceOf[BasicFunction]).asJava)
+      functions.map((function: ModelParamFunction) => function.asInstanceOf[BasicFunction]).asJava)
     script.setOutputs(savedOutputIds.asJava)
     script
   }

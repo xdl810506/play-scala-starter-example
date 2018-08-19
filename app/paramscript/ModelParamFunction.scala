@@ -16,11 +16,11 @@ import scala.collection.JavaConverters._
   *
   */
 @JsonCreator
-class ParamGeoFunction(name: String,
-  inputIds: Map[String, String],
-  var description: String,
-  functionTypeId: Int,
-  versionId: Int) extends BasicFunction(name, inputIds
+class ModelParamFunction(name: String,
+                         inputIds: Map[String, String],
+                         var description: String,
+                         functionTypeId: Int,
+                         versionId: Int) extends BasicFunction(name, inputIds
   .asJava) {
 
   def this(id: String, name: String,

@@ -14,10 +14,10 @@ import com.qunhe.diybe.module.parametric.engine.nodes.BasicFormula
   *
   */
 @JsonCreator
-class ParamGeoFormula(paramName: String,
-  value: String,
-  valueType: String,
-  var description: String)
+class ModelParamFormula(paramName: String,
+                        value: String,
+                        valueType: String,
+                        var description: String)
   extends BasicFormula(paramName, value, valueType) {
 
   def this(id: String,

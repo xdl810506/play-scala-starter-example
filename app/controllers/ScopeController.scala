@@ -14,8 +14,8 @@ import play.api.data.Form
 import play.api.data.Forms._
 import play.api.libs.json.Json
 import play.api.mvc._
-import slickexample.dal.ScopeRepository
-import slickexample.models.ScopeInfo
+import slick.dal.ScopeRepository
+import slick.models.ScopeInfo
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future, Promise}
