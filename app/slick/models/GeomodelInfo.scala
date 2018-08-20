@@ -8,10 +8,8 @@ package slick.models
 
 import java.sql.Timestamp
 
-import play.api.libs.json.Json
-
-case class GeomodelInfo(modelid: Option[Long], modeldataid: String, paramtemplateid: Long,
-  modeltype: String, created: Timestamp, lastmodified: Timestamp)
+case class GeomodelInfo(modelid: Option[Long], modeldataid: String, modeltype: String,
+                        paramtemplateid: Long, paramtemplatedataid: String, created: Timestamp, lastmodified: Timestamp)
 
 object GeomodelInfo {
 

@@ -7,6 +7,7 @@
 package controllers
 
 import java.io.{PrintWriter, StringWriter}
+import java.sql.Timestamp
 
 import akka.actor.{ActorSystem, Props}
 import com.qunhe.diybe.module.math2.base.Point2d
@@ -24,6 +25,9 @@ import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.libs.json.Json
 import play.api.mvc._
+import shared.Outcome
+import slick.dal.{GeomodelRepository, ScripttemplateRepository}
+import slick.models.{GeomodelInfo, ScripttemplateInfo}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
@@ -52,15 +56,21 @@ class BrepController @Inject()(cc: ControllerComponents,
                                modelDataRepo: ModelDataRepository,
                                modelParamDataRepo: ModelParamDataRepository,
                                modelParamTemplateDataRepo: ModelParamTemplateDataRepository,
+                               geoModelRepo: GeomodelRepository,
+                               scriptTemplateRepo: ScripttemplateRepository,
                                actorSystem: ActorSystem,
                                configuration: play.api.Configuration)
-                              (implicit exec: ExecutionContext) extends AbstractController(cc) {
+                              (implicit exec: ExecutionContext) extends AbstractController(cc) with Outcome {
   lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
     ".timeout").getOrElse(3000)
 
-  /**
+  object ModelType extends Enumeration{
+    val SHELL = "shell"
+  }
+
+    /**
     * Creates a shell from input start point, end point and extrusion height
     */
   def createShell = {
@@ -84,7 +94,7 @@ class BrepController @Inject()(cc: ControllerComponents,
       val shells: List[Shell] = List(shell)
       val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
       modelDataRepo.addModelData(ModelData(shell.getName, shell.getName, Json.parse(modelData))).map { _ =>
-        Ok(JSONObject(outcome).toString())
+        Ok(jsonResponse(outcome))
       }
     }
     }
@@ -103,13 +113,14 @@ class BrepController @Inject()(cc: ControllerComponents,
       val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
       val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
       val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
+      val shellName = shell.getName
 
       val (modelParamTemplateData, modelParamData) = ModelParamDataBuilder.
-        buildModelParamAndTemplateData(shell.getName, scriptData)
+        buildModelParamAndTemplateData(shellName, scriptData)
 
       val shells: List[Shell] = List(shell)
       val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
-      val addModelDataRes = modelDataRepo.addModelData(ModelData(shell.getName, shell.getName, Json.parse(modelData)))
+      val addModelDataRes = modelDataRepo.addModelData(ModelData(shellName, shellName, Json.parse(modelData)))
       val addModelParamDataRes = modelParamDataRepo.addModelParmData(modelParamData)
       val addModelParamTemplateDataRes = modelParamTemplateDataRepo.addModelParmTemplateData(modelParamTemplateData)
       val result = for {
@@ -118,12 +129,19 @@ class BrepController @Inject()(cc: ControllerComponents,
         r3 <- addModelParamTemplateDataRes
       } yield (Map(
         "outcome" -> "new shell being created",
-        "shell id" -> shell.getName
+        "shell id" -> shellName
       ))
+
+      val currentTime = new Timestamp(System.currentTimeMillis())
+      scriptTemplateRepo.add(ScripttemplateInfo(None, "LinearExtrusionFace", modelParamTemplateData._id, currentTime, currentTime)).map({
+        paramtemplateid => {
+          geoModelRepo.add(GeomodelInfo(None, shellName, ModelType.SHELL, paramtemplateid, modelParamTemplateData._id, currentTime, currentTime))
+        }
+      })
 
       implicit val futures = Futures.actorSystemToFutures(actorSystem)
       result.withTimeout(timeoutThreshold milliseconds)
-        .map(outcome => Ok(JSONObject(outcome).toString()))
+        .map(outcome => Ok(jsonResponse(outcome)))
         .recover {
           case e: scala.concurrent.TimeoutException => {
             LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
@@ -131,7 +149,7 @@ class BrepController @Inject()(cc: ControllerComponents,
             val outcome = Map(
               "outcome" -> "request timeout"
             )
-            InternalServerError(JSONObject(outcome).toString())
+            InternalServerError(jsonResponse(outcome))
           }
           case NonFatal(e) => {
             val sw = new StringWriter
@@ -141,7 +159,7 @@ class BrepController @Inject()(cc: ControllerComponents,
             val outcome = Map(
               "outcome" -> ("server error: " + e.getMessage)
             )
-            InternalServerError(JSONObject(outcome).toString())
+            InternalServerError(jsonResponse(outcome))
           }
         }
     }
@@ -153,10 +171,10 @@ class BrepController @Inject()(cc: ControllerComponents,
     */
   def editParametricShell(shellId: String) = {
     Action.async { request => {
-      modelParamDataRepo.getModelParamData(shellId).flatMap(modelParamDataOpt => {
-        modelParamDataOpt match {
-          case Some(modelParamData) => {
-            val scriptTemplateId: String = modelParamData.paramRefData.scriptTemplateId
+      geoModelRepo.get(shellId).flatMap(geomodelInfoOpt => {
+        geomodelInfoOpt match {
+          case Some(geomodelInfo) => {
+            val scriptTemplateId = geomodelInfo.paramtemplatedataid
             if (scriptTemplateId.nonEmpty) {
               modelParamTemplateDataRepo.getModelParamTemplateData(scriptTemplateId).flatMap(modelParamTemplateDataOpt => {
                 modelParamTemplateDataOpt match {
@@ -191,7 +209,7 @@ class BrepController @Inject()(cc: ControllerComponents,
 
                     implicit val futures = Futures.actorSystemToFutures(actorSystem)
                     result.withTimeout(timeoutThreshold milliseconds)
-                      .map(outcome => Ok(JSONObject(outcome).toString()))
+                      .map(outcome => Ok(jsonResponse(outcome)))
                       .recover {
                         case e: scala.concurrent.TimeoutException => {
                           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
@@ -199,7 +217,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                           val outcome = Map(
                             "outcome" -> "request timeout"
                           )
-                          InternalServerError(JSONObject(outcome).toString())
+                          InternalServerError(jsonResponse(outcome))
                         }
                         case NonFatal(e) => {
                           val sw = new StringWriter
@@ -209,7 +227,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                           val outcome = Map(
                             "outcome" -> ("server error: " + e.getMessage)
                           )
-                          InternalServerError(JSONObject(outcome).toString())
+                          InternalServerError(jsonResponse(outcome))
                         }
                       }
                   }
@@ -217,7 +235,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                     val outcome = Map(
                       "outcome" -> "no model param template data found"
                     )
-                    scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
+                    scala.concurrent.Future(NotFound(jsonResponse(outcome)))
                   }
                 }
               }).recover {
@@ -228,7 +246,7 @@ class BrepController @Inject()(cc: ControllerComponents,
                   val outcome = Map(
                     "outcome" -> "request timeout"
                   )
-                  InternalServerError(JSONObject(outcome).toString())
+                  InternalServerError(jsonResponse(outcome))
                 }
                 case NonFatal(e) => {
                   val sw = new StringWriter
@@ -238,21 +256,21 @@ class BrepController @Inject()(cc: ControllerComponents,
                   val outcome = Map(
                     "outcome" -> ("server error: " + e.getMessage)
                   )
-                  InternalServerError(JSONObject(outcome).toString())
+                  InternalServerError(jsonResponse(outcome))
                 }
               }
             } else {
               val outcome = Map(
                 "outcome" -> "no model param template id found"
               )
-              scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
+              scala.concurrent.Future(NotFound(jsonResponse(outcome)))
             }
           }
           case None => {
             val outcome = Map(
               "outcome" -> "no model param data found"
             )
-            scala.concurrent.Future(NotFound(JSONObject(outcome).toString()))
+            scala.concurrent.Future(NotFound(jsonResponse(outcome)))
           }
         }
       }).recover {
@@ -263,7 +281,7 @@ class BrepController @Inject()(cc: ControllerComponents,
           val outcome = Map(
             "outcome" -> "request timeout"
           )
-          InternalServerError(JSONObject(outcome).toString())
+          InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
           val sw = new StringWriter
@@ -273,7 +291,7 @@ class BrepController @Inject()(cc: ControllerComponents,
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )
-          InternalServerError(JSONObject(outcome).toString())
+          InternalServerError(jsonResponse(outcome))
         }
       }
     }
@@ -294,13 +312,13 @@ class BrepController @Inject()(cc: ControllerComponents,
                 "outcome" -> "shell data found",
                 "shell data" -> shelldata.modelData.toString
               )
-              Ok(JSONObject(outcome).toString())
+              Ok(jsonResponse(outcome))
             }
             case _ => {
               val outcome = Map(
                 "outcome" -> "no shell data found"
               )
-              NotFound(JSONObject(outcome).toString())
+              NotFound(jsonResponse(outcome))
             }
           }
         }).recover {
@@ -311,7 +329,7 @@ class BrepController @Inject()(cc: ControllerComponents,
           val outcome = Map(
             "outcome" -> "request timeout"
           )
-          InternalServerError(JSONObject(outcome).toString())
+          InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
           val sw = new StringWriter
@@ -321,7 +339,7 @@ class BrepController @Inject()(cc: ControllerComponents,
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )
-          InternalServerError(JSONObject(outcome).toString())
+          InternalServerError(jsonResponse(outcome))
         }
       }
     }

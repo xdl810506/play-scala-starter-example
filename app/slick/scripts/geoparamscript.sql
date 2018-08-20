@@ -8,8 +8,9 @@ drop table if exists geomodel;
 create table geomodel (
   modelid int not null primary key auto_increment,
   modeldataid varchar(255) not null,
-  paramtemplateid int not null,
   modeltype varchar(255),
+  paramtemplateid int not null,
+  paramtemplatedataid varchar(255) not null,
   created timestamp not null default current_timestamp,
   lastmodified timestamp not null default current_timestamp on update current_timestamp
 ) engine=InnoDB default charset=utf8;
@@ -23,4 +24,8 @@ create table scripttemplate (
   lastmodified timestamp not null default current_timestamp on update current_timestamp
 ) engine=InnoDB default charset=utf8;
 
+CREATE INDEX index_model_data_id ON geomodel (modeldataid);
+
 show tables;
+show index from geomodel;
+show index from scripttemplate;

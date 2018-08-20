@@ -8,18 +8,19 @@ package slick.dal
 
 import java.sql.Timestamp
 
+import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject.{Inject, Singleton}
-import org.slf4j.LoggerFactory
 import play.api.db.slick.DatabaseConfigProvider
+import shared.Decorating
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.models.{GeomodelInfo, ScopeInfo}
+import slick.models.GeomodelInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class GeomodelRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ec: ExecutionContext) {
-  lazy val log = LoggerFactory.getLogger("com.qunhe")
+class GeomodelRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ec: ExecutionContext) extends Decorating {
+  lazy val LOG: QHLogger = QHLogger.getLogger(classOf[GeomodelRepository])
 
   // We want the JdbcProfile for this provider
   private val dbConfig = dbConfigProvider.get[JdbcProfile]
@@ -34,16 +35,18 @@ class GeomodelRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(imp
 
     def modeldataid = column[String]("modeldataid")
 
+    def modeltype = column[String]("modeltype")
+
     def paramtemplateid = column[Long]("paramtemplateid")
 
-    def modeltype = column[String]("modeltype")
+    def paramtemplatedataid = column[String]("paramtemplatedataid")
 
     def created = column[Timestamp]("created")
 
     def lastmodified = column[Timestamp]("lastmodified")
 
     override def * =
-      (modelid.?, modeldataid, paramtemplateid, modeltype, created, lastmodified) <> ((GeomodelInfo.apply _).tupled,
+      (modelid.?, modeldataid, modeltype, paramtemplateid, paramtemplatedataid, created, lastmodified) <> ((GeomodelInfo.apply _).tupled,
         GeomodelInfo.unapply)
   }
 
@@ -52,37 +55,49 @@ class GeomodelRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(imp
   def add(modelInfo: GeomodelInfo): Future[Boolean] = {
     db.run(geomodels += modelInfo).map(_ => true).recover({
       case ex: Exception =>
-        log.warn("add model fails", ex)
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to add geometry model info into mysql for: " + modelInfo.modeldataid + ", due to: " + clarify(ex))
         false
     })
   }
 
   def delete(modeldataid: String): Future[Int] = {
-    db.run(geomodels.filter(_.modeldataid === modeldataid).delete)
+    db.run(geomodels.filter(_.modeldataid === modeldataid).delete).recover({
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to delete geometry model info from mysql for: " + modeldataid + ", due to: " + clarify(ex))
+        0
+    })
   }
 
   def get(modeldataid: String): Future[Option[GeomodelInfo]] = {
     db.run(geomodels.filter(_.modeldataid === modeldataid).result.headOption).recover({
-      case ex: Exception => {
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to get geometry model info from mysql for: " + modeldataid + ", due to: " + clarify(ex))
         None
-      }
     })
   }
 
   def healthCheck(): Future[Long] = {
     val reqsql = sql"SELECT modeldataid FROM geomodel limit 1".as[String]
-    val auroraTick = System.currentTimeMillis()
+    val currentTick = System.currentTimeMillis()
 
-    db.run(reqsql).map(_ => System.currentTimeMillis() - auroraTick).recover {
+    db.run(reqsql).map(_ => System.currentTimeMillis() - currentTick).recover {
       case ex: Exception => {
-        log.warn("healthCheck fail: " + ex.getMessage)
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "healthCheck failed due to: " + clarify(ex))
         -1
       }
     }
   }
 
   def listAll: Future[Seq[GeomodelInfo]] = {
-    db.run(geomodels.result)
+    db.run(geomodels.result).recover({
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to get all geometry model info from mysql due to: " + clarify(ex))
+        Seq()
+    })
   }
 
   def createTable: Future[String] = {
@@ -92,7 +107,11 @@ class GeomodelRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(imp
         if (!tables.exists(_.name.name == geomodels.baseTableRow.tableName))
           db.run(schema.create)
       }))).map(res => "geomodel table successfully added").recover {
-      case ex: Exception => ex.getCause.getMessage
+      case ex: Exception => {
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to create geomodel table due to: " + clarify(ex))
+        ex.getCause.getMessage
+      }
     }
   }
 }

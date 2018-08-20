@@ -8,18 +8,19 @@ package slick.dal
 
 import java.sql.Timestamp
 
+import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject.{Inject, Singleton}
-import org.slf4j.LoggerFactory
 import play.api.db.slick.DatabaseConfigProvider
+import shared.Decorating
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.models.{GeomodelInfo, ScopeInfo, ScripttemplateInfo}
+import slick.models.ScripttemplateInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class ScripttemplateRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ec: ExecutionContext) {
-  lazy val log = LoggerFactory.getLogger("com.qunhe")
+class ScripttemplateRepository @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ec: ExecutionContext) extends Decorating {
+  lazy val LOG: QHLogger = QHLogger.getLogger(classOf[ScripttemplateRepository])
 
   // We want the JdbcProfile for this provider
   private val dbConfig = dbConfigProvider.get[JdbcProfile]
@@ -47,28 +48,41 @@ class ScripttemplateRepository @Inject()(dbConfigProvider: DatabaseConfigProvide
 
   private val scripttemplates = TableQuery[ScripttemplateTableDef]
 
-  def add(scriptTemplateInfo: ScripttemplateInfo): Future[Boolean] = {
-    db.run(scripttemplates += scriptTemplateInfo).map(_ => true).recover({
+  def add(scriptTemplateInfo: ScripttemplateInfo): Future[Long] = {
+    val query = (scripttemplates returning scripttemplates.map(_.templateid)) += scriptTemplateInfo
+    db.run(query).recover({
       case ex: Exception =>
-        log.warn("add script template fails", ex)
-        false
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to add script template info into mysql for: " + scriptTemplateInfo.templatedataid + ", due to: " + clarify(ex))
+        -1
     })
   }
 
   def delete(templatedataid: String): Future[Int] = {
-    db.run(scripttemplates.filter(_.templatedataid === templatedataid).delete)
+    db.run(scripttemplates.filter(_.templatedataid === templatedataid).delete).recover({
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to delete script template info from mysql for: " + templatedataid + ", due to: " + clarify(ex))
+        0
+    })
   }
 
   def get(templatedataid: String): Future[Option[ScripttemplateInfo]] = {
     db.run(scripttemplates.filter(_.templatedataid === templatedataid).result.headOption).recover({
-      case ex: Exception => {
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to get script template info from mysql for: " + templatedataid + ", due to: " + clarify(ex))
         None
-      }
     })
   }
 
   def listAll: Future[Seq[ScripttemplateInfo]] = {
-    db.run(scripttemplates.result)
+    db.run(scripttemplates.result).recover({
+      case ex: Exception =>
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to get all script template info from mysql due to: " + clarify(ex))
+        Seq()
+    })
   }
 
   def createTable: Future[String] = {
@@ -78,7 +92,11 @@ class ScripttemplateRepository @Inject()(dbConfigProvider: DatabaseConfigProvide
         if (!tables.exists(_.name.name == scripttemplates.baseTableRow.tableName))
           db.run(schema.create)
       }))).map(res => "scripttemplate table successfully added").recover {
-      case ex: Exception => ex.getCause.getMessage
+      case ex: Exception => {
+        LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "Failed " +
+          "to create scripttemplate table due to: " + clarify(ex))
+        ex.getCause.getMessage
+      }
     }
   }
 }
