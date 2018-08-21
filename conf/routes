@@ -3,7 +3,7 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET     /                           controllers.HomeController.index
+#GET     /                           controllers.HomeController.index
 # An example controller showing how to use dependency injection
 GET     /count                      controllers.CountController.count
 # An example controller showing how to write asynchronous code
@@ -14,13 +14,12 @@ POST    /scope                      controllers.ScopeController.addScope
 GET     /scopes                     controllers.ScopeController.getScopes
 
 # parametric geometry engine demonstration
-GET     /shell/:id                  controllers.BrepController.getShell(id)
-POST    /shell                      controllers.BrepController.createShell
-POST    /parametricshell            controllers.BrepController.createParametricShell
-PUT     /parametricshell/:id        controllers.BrepController.editParametricShell(id)
+GET     /shell/:id                  services.api.v1.BrepController.getShell(id)
+POST    /shell                      services.api.v1.BrepController.createShell
+POST    /parametricshell            services.api.v1.BrepController.createParametricShell
+PUT     /parametricshell/:id        services.api.v1.BrepController.editParametricShell(id)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(file)
 
-GET     /                           services.api.v1.System.dashboard
-GET     /dependencies               services.api.v1.System.dependencies
+GET     /                           services.api.v1.SystemController.dashboard

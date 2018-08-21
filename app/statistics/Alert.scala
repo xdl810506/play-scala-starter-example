@@ -6,6 +6,7 @@
 package statistics
 
 import akka.actor.ActorRef
+import play.Boot
 
 import scala.language.postfixOps
 

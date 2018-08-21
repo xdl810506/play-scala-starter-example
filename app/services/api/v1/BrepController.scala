@@ -4,12 +4,13 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package controllers
+package services.api.v1
 
 import java.io.{PrintWriter, StringWriter}
-import java.sql.Timestamp
 
 import akka.actor.{ActorSystem, Props}
+import akka.pattern.ask
+import akka.util.Timeout
 import com.qunhe.diybe.module.math2.base.Point2d
 import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
@@ -21,20 +22,20 @@ import mongo.dal.{ModelDataRepository, ModelParamDataRepository, ModelParamTempl
 import mongo.models.ModelData
 import paramscript.functions.BrepFunctions
 import paramscript.helper.{ModelParamDataBuilder, ParamScriptHelper}
+import play.Boot
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.libs.json.Json
 import play.api.mvc._
 import shared.Outcome
 import slick.dal.{GeomodelRepository, ScripttemplateRepository}
-import slick.models.{GeomodelInfo, ScripttemplateInfo}
+import subsystems.brep.CREATE_PARAM_MODEL
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
-import scala.util.parsing.json.JSONObject
 
 /**
   * This controller creates an `Action` that demonstrates how to write
@@ -65,12 +66,19 @@ class BrepController @Inject()(cc: ControllerComponents,
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
     ".timeout").getOrElse(3000)
+  implicit val timeout: Timeout = timeoutThreshold.milliseconds
 
-  object ModelType extends Enumeration{
+  Boot.modelDataRepo = modelDataRepo
+  Boot.modelParamDataRepo = modelParamDataRepo
+  Boot.modelParamTemplateDataRepo = modelParamTemplateDataRepo
+  Boot.geoModelRepo = geoModelRepo
+  Boot.scriptTemplateRepo = scriptTemplateRepo
+
+  object ModelType extends Enumeration {
     val SHELL = "shell"
   }
 
-    /**
+  /**
     * Creates a shell from input start point, end point and extrusion height
     */
   def createShell = {
@@ -107,61 +115,33 @@ class BrepController @Inject()(cc: ControllerComponents,
       // that by injecting it into your controller's constructor
       // https://www.playframework.com/documentation/2.6.x/ScalaAsync
       val json = request.body.asJson.get
-      val scriptData = ParamScriptHelper.buildParamScriptDataFromJson(json)
-      val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
 
-      val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
-      val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
-      val shell: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
-      val shellName = shell.getName
-
-      val (modelParamTemplateData, modelParamData) = ModelParamDataBuilder.
-        buildModelParamAndTemplateData(shellName, scriptData)
-
-      val shells: List[Shell] = List(shell)
-      val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
-      val addModelDataRes = modelDataRepo.addModelData(ModelData(shellName, shellName, Json.parse(modelData)))
-      val addModelParamDataRes = modelParamDataRepo.addModelParmData(modelParamData)
-      val addModelParamTemplateDataRes = modelParamTemplateDataRepo.addModelParmTemplateData(modelParamTemplateData)
-      val result = for {
-        r1 <- addModelDataRes
-        r2 <- addModelParamDataRes
-        r3 <- addModelParamTemplateDataRes
-      } yield (Map(
-        "outcome" -> "new shell being created",
-        "shell id" -> shellName
-      ))
-
-      val currentTime = new Timestamp(System.currentTimeMillis())
-      scriptTemplateRepo.add(ScripttemplateInfo(None, "LinearExtrusionFace", modelParamTemplateData._id, currentTime, currentTime)).map({
-        paramtemplateid => {
-          geoModelRepo.add(GeomodelInfo(None, shellName, ModelType.SHELL, paramtemplateid, modelParamTemplateData._id, currentTime, currentTime))
-        }
-      })
+      val router = actorSystem.actorSelection("akka://application/user/daemon/router")
+      val routed = (CREATE_PARAM_MODEL(json), "brep")
 
       implicit val futures = Futures.actorSystemToFutures(actorSystem)
-      result.withTimeout(timeoutThreshold milliseconds)
-        .map(outcome => Ok(jsonResponse(outcome)))
-        .recover {
-          case e: scala.concurrent.TimeoutException => {
-            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
-              request.method + " " + request.uri + " timeout after " + timeoutThreshold + " milliseconds")
-            val outcome = Map(
-              "outcome" -> "request timeout"
-            )
-            InternalServerError(jsonResponse(outcome))
-          }
-          case NonFatal(e) => {
-            val sw = new StringWriter
-            e.printStackTrace(new PrintWriter(sw))
-            LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-              .method + " " + request.uri + " " + sw.toString)
-            val outcome = Map(
-              "outcome" -> ("server error: " + e.getMessage)
-            )
-            InternalServerError(jsonResponse(outcome))
-          }
+      (router ? routed).mapTo[Map[String, String]].withTimeout(timeoutThreshold milliseconds).map {
+        (outcome => Ok(jsonResponse(outcome)))
+      }.recover {
+        case e: scala.concurrent.TimeoutException => {
+          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware",
+            request.method + " " + request.uri + " timeout after " + timeoutThreshold + " milliseconds")
+          val outcome = Map(
+            "outcome" -> "request timeout"
+          )
+          InternalServerError(jsonResponse(outcome))
         }
+        case NonFatal(e) => {
+          val sw = new StringWriter
+          e.printStackTrace(new PrintWriter(sw))
+          LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
+            .method + " " + request.uri + " " + sw.toString)
+          val outcome = Map(
+            "outcome" -> ("server error: " + e.getMessage)
+          )
+          InternalServerError(jsonResponse(outcome))
+        }
+      }
     }
     }
   }

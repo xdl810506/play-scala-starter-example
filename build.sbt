@@ -13,8 +13,6 @@ scalaVersion := "2.12.6"
 
 crossScalaVersions := Seq("2.11.12", "2.12.6")
 
-routesGenerator := InjectedRoutesGenerator
-
 libraryDependencies += guice
 libraryDependencies += "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test
 libraryDependencies += "org.mongodb" %% "casbah" % "3.1.1" pomOnly()

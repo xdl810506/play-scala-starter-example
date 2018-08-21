@@ -23,7 +23,7 @@ final class Monitor(every: Duration) extends Supervised with UsingSystemProperti
   /**
     * - the alert collection in mongo
     */
-  lazy val alerts = Boot.alertsRepository
+  //lazy val alerts = Boot.alertsRepository
 
   /**
     * - alert counter
@@ -57,7 +57,7 @@ final class Monitor(every: Duration) extends Supervised with UsingSystemProperti
   def receive = {
     case Alert(who, tick, why) => {
       try {
-        alerts.add(new Alerts(None, who, new Timestamp(tick), originator, why))
+        //alerts.add(new Alerts(None, who, new Timestamp(tick), originator, why))
       }
       catch {
         case _: Throwable => log warning (self.path + " : unable to write alert to mongo")
