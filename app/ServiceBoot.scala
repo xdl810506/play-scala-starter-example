@@ -20,7 +20,7 @@ class ServiceBoot(context: Context) extends BootCore(context) with Loggable with
 
   override def onStart(): Unit = {
     super.onStart()
-    Boot.system = actorSystem
+    Boot.actorSystem = actorSystem
 
     implicit val executor = scala.concurrent.ExecutionContext.Implicits.global
     daemon = Some(actorSystem.actorOf(Props(new Daemon(context.initialConfiguration)), name = "daemon"))
@@ -28,7 +28,7 @@ class ServiceBoot(context: Context) extends BootCore(context) with Loggable with
 
   override def onStop(): Unit = {
     daemon.map {
-      Boot.system.stop(_)
+      Boot.actorSystem.stop(_)
     }
     actorSystem.terminate()
     super.onStop()

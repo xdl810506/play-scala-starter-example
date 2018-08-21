@@ -65,9 +65,10 @@ class BrepController @Inject()(cc: ControllerComponents,
   lazy val mongoActor = actorSystem.actorOf(Props[MongoActor], name = "mongoActor")
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
-    ".timeout").getOrElse(3000)
+    ".timeout").getOrElse(30000)
   implicit val timeout: Timeout = timeoutThreshold.milliseconds
 
+  Boot.actorSystem = actorSystem
   Boot.modelDataRepo = modelDataRepo
   Boot.modelParamDataRepo = modelParamDataRepo
   Boot.modelParamTemplateDataRepo = modelParamTemplateDataRepo

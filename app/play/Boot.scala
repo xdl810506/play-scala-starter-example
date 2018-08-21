@@ -19,32 +19,11 @@ import slick.dal.{GeomodelRepository, ScripttemplateRepository}
   * @author jiangliu
   *
   */
-object Boot extends Loggable with UsingTime {
-  private val systemRef = new AtomicReference[Option[ActorSystem]](None)
-  private val sdf = new SimpleDateFormat("HH:mm:ss")
-
+object Boot {
   var modelDataRepo: ModelDataRepository = _
   var modelParamDataRepo: ModelParamDataRepository = _
   var modelParamTemplateDataRepo: ModelParamTemplateDataRepository = _
   var geoModelRepo: GeomodelRepository = _
   var scriptTemplateRepo: ScripttemplateRepository = _
-
-  /**
-    * Gets the main actor system
-    */
-  def system = {
-    if (systemRef.get.isEmpty) {
-      systemRef.set(Some(ActorSystem("application")))
-    }
-    systemRef.get.get
-  }
-
-  def system_=(newValue: ActorSystem) = systemRef.set(Some(newValue))
-
-
-  def hms = {
-    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
-    sdf.format(uptime)
-  }
-
+  var actorSystem: ActorSystem = _
 }

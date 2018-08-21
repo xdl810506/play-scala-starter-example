@@ -7,8 +7,10 @@ package services.router
 
 import akka.actor.{Actor, ActorRef, Deploy, Props}
 import akka.routing.FromConfig
+import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
+import mongo.MongoActor
 import play.Boot
-import shared.Supervised
+import shared.{Decorating, Supervised}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
@@ -18,15 +20,21 @@ final case class Routed(from: ActorRef, to: String)
 import javax.inject._
 import play.api.Configuration
 
-final class AppRouter @Inject()(configuration: Configuration) extends Supervised {
+final class AppRouter @Inject()(configuration: Configuration) extends Supervised with Decorating{
   /**
     * - our subsystem configuration (one block mapping to one kind of actor handling the subsystem logic)
     */
   lazy val subsystems: java.util.List[String] = try {
     configuration.underlying.getStringList("qunhe.geoparamengine.subsystems.handlers")
   } catch {
-    case e: Throwable => List().asJava
+    case e: Throwable => {
+      LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware",
+        "Failed to retrieve qunhe.geoparamengine.subsystems.handlers: " + clarify(e))
+      List().asJava
+    }
   }
+
+  lazy val LOG: QHLogger = QHLogger.getLogger(classOf[MongoActor])
 
   /**
     * - our set of subsystem handlers
@@ -79,12 +87,15 @@ final class AppRouter @Inject()(configuration: Configuration) extends Supervised
       }
     }
 
-    case _ =>
+    case theMessage => {
+      LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware",
+        "received unknown message: " + theMessage.toString)
+    }
   }
 }
 
 object AppRouter {
-  lazy val router = Boot.system.actorSelection("akka://application/user/daemon/router")
+  lazy val router = Boot.actorSystem.actorSelection("akka://application/user/daemon/router")
 
   def apply(what: AnyRef, to: String): Unit = {
     val routed = (what, to)

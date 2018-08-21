@@ -16,7 +16,7 @@ object Alert {
   /**
     * - our monitor
     */
-  lazy val monitor = Boot.system.actorSelection("akka://application/user/daemons/monitor")
+  lazy val monitor = Boot.actorSystem.actorSelection("akka://application/user/daemon/monitor")
 
   def apply(from: ActorRef, why: String): Unit = monitor ! Alert((from path) toString, System currentTimeMillis, why)
 }
