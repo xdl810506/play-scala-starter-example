@@ -6,18 +6,33 @@
 
 package play
 
+import akka.actor.ActorSystem
 import javax.inject.{Inject, Singleton}
+import mongo.dal.{ModelDataRepository, ModelParamDataRepository, ModelParamTemplateDataRepository}
 import services.router.AppRouter
 import shared.Supervised
+import slick.dal.{GeomodelRepository, ScripttemplateRepository}
 
 /**
   * @author jiangliu
   *
   */
 @Singleton
-class Daemon @Inject()(configuration: play.api.Configuration) extends Supervised {
+class Daemon @Inject()(modelDataRepo: ModelDataRepository,
+                       modelParamDataRepo: ModelParamDataRepository,
+                       modelParamTemplateDataRepo: ModelParamTemplateDataRepository,
+                       geoModelRepo: GeomodelRepository,
+                       scriptTemplateRepo: ScripttemplateRepository,
+                       actorSystem: ActorSystem,
+                       configuration: play.api.Configuration) extends Supervised {
 
-  //val cache = context actorOf(FromConfig.props(Props[Cache]), name = "tr-cache")
+  Boot.actorSystem = actorSystem
+  Boot.modelDataRepo = modelDataRepo
+  Boot.modelParamDataRepo = modelParamDataRepo
+  Boot.modelParamTemplateDataRepo = modelParamTemplateDataRepo
+  Boot.geoModelRepo = geoModelRepo
+  Boot.scriptTemplateRepo = scriptTemplateRepo
+  Boot.configuration = configuration
 
   val router = named(new AppRouter(configuration), "router")
 

@@ -6,11 +6,10 @@
 package subsystems.script
 
 import akka.pattern.pipe
-import play.Boot
+import play.{Boot, Contexts}
 import play.api.libs.json._
 import shared.{ScalaObjMapper, Supervised}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
 case class GET_TEMPLATE_SCRIPT(templateScriptId: String)
@@ -22,7 +21,7 @@ class AbstractHandlers extends Supervised with ScalaObjMapper {
 
   override def factory = context.props.deploy.config
 
-  //implicit val ec = Contexts.dbWriteOperations
+  implicit val ec = Contexts.expensiveDbLookups
 
   override
   def receive = {

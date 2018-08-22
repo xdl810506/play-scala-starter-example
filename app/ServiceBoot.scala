@@ -22,8 +22,8 @@ class ServiceBoot(context: Context) extends BootCore(context) with Loggable with
     super.onStart()
     Boot.actorSystem = actorSystem
 
-    implicit val executor = scala.concurrent.ExecutionContext.Implicits.global
-    daemon = Some(actorSystem.actorOf(Props(new Daemon(context.initialConfiguration)), name = "daemon"))
+    //implicit val executor = scala.concurrent.ExecutionContext.Implicits.global
+    //daemon = Some(actorSystem.actorOf(Props(new Daemon(context.initialConfiguration)), name = "daemon"))
   }
 
   override def onStop(): Unit = {

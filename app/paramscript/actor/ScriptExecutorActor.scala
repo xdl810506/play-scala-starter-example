@@ -5,6 +5,7 @@
  */
 package paramscript.actor
 
+import akka.actor.PoisonPill
 import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import paramscript.data.ParamScriptData
@@ -22,12 +23,7 @@ case class EXECUTE_SCRIPT_WITH_USERINPUTS(scriptData: ParamScriptData, userInput
   * - /system/v1 HTTP/REST Parametric Script API back-end handlers
   */
 class ScriptExecutorActor extends Supervised with Decorating {
-
-  override def factory = context.props.deploy.config
-
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[ScriptExecutorActor])
-
-  //implicit val ec = Contexts.dbWriteOperations
 
   override
   def receive = {
@@ -38,11 +34,13 @@ class ScriptExecutorActor extends Supervised with Decorating {
         val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript)
 
         sender ! Some(resultParam)
+        self ! PoisonPill
       } catch {
         case e: Exception => {
           val errorMsg = "parameter script execution failed with " + clarify(e)
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
           sender ! None
+          self ! PoisonPill
         }
       }
     }
@@ -53,11 +51,13 @@ class ScriptExecutorActor extends Supervised with Decorating {
         val resultParam: ParamScriptResult = executor.execute(scriptData.toParamScript, userInputs.asJava)
 
         sender ! Some(resultParam)
+        self ! PoisonPill
       } catch {
         case e: Exception => {
           val errorMsg = "parameter script execution with user inputs failed with " + clarify(e)
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
           sender ! None
+          self ! PoisonPill
         }
       }
     }

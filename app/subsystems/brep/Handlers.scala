@@ -6,6 +6,7 @@
 package subsystems.brep
 
 import java.sql.Timestamp
+import java.util.UUID
 
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
@@ -16,7 +17,7 @@ import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import mongo.models.{ModelData, ModelParamTemplateData}
 import paramscript.actor._
 import paramscript.helper.{ModelParamDataBuilder, ParamScriptHelper}
-import play.Boot
+import play.{Boot, Contexts}
 import play.api.libs.concurrent.Futures
 import play.api.libs.json._
 import services.api.v1.BrepController
@@ -24,7 +25,6 @@ import shared.{Decorating, Supervised}
 import slick.models.{GeomodelInfo, ScripttemplateInfo}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -49,8 +49,7 @@ class AbstractHandlers extends Supervised with Decorating {
   implicit val timeout: Timeout = timeoutThreshold.milliseconds
 
   implicit val futures = Futures.actorSystemToFutures(Boot.actorSystem)
-
-  //implicit val ec = Contexts.dbWriteOperations
+  implicit val ec = Contexts.dbWriteOperations
 
   object ModelType extends Enumeration {
     val SHELL = "shell"
@@ -60,8 +59,9 @@ class AbstractHandlers extends Supervised with Decorating {
   def receive = {
     case (CREATE_PARAM_MODEL(json)) => {
       val scriptData = ParamScriptHelper.buildParamScriptDataFromJson(json)
-      val scriptExecutorActor = named(new ScriptExecutorActor, "scriptExecutor")
+      val scriptExecutorActor = named(new ScriptExecutorActor, UUID.randomUUID.toString())
 
+      val senderRef = sender
       (scriptExecutorActor ? EXECUTE_SCRIPT(scriptData)).mapTo[Option[ParamScriptResult]].map(paramScriptResOpt => {
         paramScriptResOpt match {
           case Some(resultParam) => {
@@ -75,6 +75,7 @@ class AbstractHandlers extends Supervised with Decorating {
 
               val shells: List[Shell] = List(shell)
               val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
+
 
               // add related data into mongodb
               val addModelDataRes = Boot.modelDataRepo.addModelData(ModelData(shellName, shellName, Json.parse(modelData)))
@@ -102,36 +103,36 @@ class AbstractHandlers extends Supervised with Decorating {
                 "shell id" -> shellName
               ))
 
-              result.pipeTo(sender)
+              result.pipeTo(senderRef)
             } catch {
               case e: Exception => {
                 val errorMsg = clarify(e)
                 Future(Map(
                   "outcome" -> "failed to create shell",
                   "diagnostics" -> errorMsg
-                )).pipeTo(sender)
+                )).pipeTo(senderRef)
               }
             }
           }
           case _ => {
             Future(Map(
               "outcome" -> "failed to execute parametric script"
-            )).pipeTo(sender)
+            )).pipeTo(senderRef)
           }
         }
-      }).recover {
+      })(Contexts.expensiveCpuOperations).recover {
         case e: scala.concurrent.TimeoutException => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "execute parametric script timeout after "
             + timeoutThreshold + " milliseconds")
           Future(Map(
             "outcome" -> "execute parametric script timeout"
-          )).pipeTo(sender)
+          )).pipeTo(senderRef)
         }
         case e: Exception => {
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "failed to execute parametric script due to: " + clarify(e))
           Future(Map(
             "outcome" -> ("server error: " + e.getMessage)
-          )).pipeTo(sender)
+          )).pipeTo(senderRef)
         }
       }
     }
@@ -139,9 +140,10 @@ class AbstractHandlers extends Supervised with Decorating {
       val scriptData = modelParamTemplateData.parmScript
       val userInputs = ParamScriptHelper.buildUserInputsFromJson(json)
 
-      val scriptExecutorActor = named(new ScriptExecutorActor, "scriptExecutor")
+      val scriptExecutorActor = named(new ScriptExecutorActor, UUID.randomUUID.toString())
       scriptExecutorActor ! EXECUTE_SCRIPT_WITH_USERINPUTS(scriptData, userInputs)
 
+      val senderRef = sender
       (scriptExecutorActor ? EXECUTE_SCRIPT_WITH_USERINPUTS(scriptData, userInputs)).mapTo[Option[ParamScriptResult]].map(paramScriptResOpt => {
         paramScriptResOpt match {
           case Some(resultParam) => {
@@ -167,36 +169,36 @@ class AbstractHandlers extends Supervised with Decorating {
                 "shell id" -> shellId
               ))
 
-              result.pipeTo(sender)
+              result.pipeTo(senderRef)
             } catch {
               case e: Exception => {
                 val errorMsg = clarify(e)
                 Future(Map(
                   "outcome" -> "failed to update shell",
                   "diagnostics" -> errorMsg
-                )).pipeTo(sender)
+                )).pipeTo(senderRef)
               }
             }
           }
           case _ => {
             Future(Map(
               "outcome" -> "failed to execute parametric script"
-            )).pipeTo(sender)
+            )).pipeTo(senderRef)
           }
         }
-      }).recover {
+      })(Contexts.expensiveCpuOperations).recover {
         case e: scala.concurrent.TimeoutException => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", "execute parametric script timeout after "
             + timeoutThreshold + " milliseconds")
           Future(Map(
             "outcome" -> "execute parametric script timeout"
-          )).pipeTo(sender)
+          )).pipeTo(senderRef)
         }
         case e: Exception => {
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "failed to execute parametric script due to: " + clarify(e))
           Future(Map(
             "outcome" -> ("server error: " + e.getMessage)
-          )).pipeTo(sender)
+          )).pipeTo(senderRef)
         }
       }
     }
@@ -217,7 +219,7 @@ class AbstractHandlers extends Supervised with Decorating {
         case (_, _) => {
           None
         }
-      })
+      })(Contexts.expensiveDbLookups)
 
       result.pipeTo(sender)
     }

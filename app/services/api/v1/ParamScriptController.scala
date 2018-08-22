@@ -13,6 +13,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
+import play.Boot
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.mvc._
@@ -30,8 +31,6 @@ import scala.util.control.NonFatal
   * asynchronously delay sending a response for 1 second.
   *
   * @param cc          standard controller components
-  * @param actorSystem We need the `ActorSystem`'s `Scheduler` to
-  *                    run code after a delay.
   * @param exec        We need an `ExecutionContext` to execute our
   *                    asynchronous code.  When rendering content, you should use Play's
   *                    default execution context, which is dependency injected.  If you are
@@ -40,11 +39,11 @@ import scala.util.control.NonFatal
   *                    a blocking API.
   */
 @Singleton
-class ParamScriptController @Inject()(cc: ControllerComponents, actorSystem: ActorSystem, configuration: play.api.Configuration)
+class ParamScriptController @Inject()(cc: ControllerComponents)
                                      (implicit exec: ExecutionContext) extends AbstractController(cc) with Outcome {
 
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
-  lazy val timeoutThreshold: Long = configuration.getOptional[Long]("qunhe.geoparamengine.http" +
+  lazy val timeoutThreshold: Long = Boot.configuration.getOptional[Long]("qunhe.geoparamengine.http" +
     ".timeout").getOrElse(30000)
   implicit val timeout: Timeout = timeoutThreshold.milliseconds
 
@@ -58,10 +57,10 @@ class ParamScriptController @Inject()(cc: ControllerComponents, actorSystem: Act
     */
   def getParamTemplateScript(templateScriptId: String) = {
     Action.async { request => {
-      val router = actorSystem.actorSelection("akka://application/user/daemon/router")
+      val router = Boot.actorSystem.actorSelection("akka://application/user/daemon/router")
       val routed = (GET_TEMPLATE_SCRIPT(templateScriptId), "script")
 
-      implicit val futures = Futures.actorSystemToFutures(actorSystem)
+      implicit val futures = Futures.actorSystemToFutures(Boot.actorSystem)
       (router ? routed).mapTo[Option[Map[String, String]]].withTimeout(timeoutThreshold milliseconds)
         .map(outcomeOpt => {
           outcomeOpt match {
