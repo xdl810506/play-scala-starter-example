@@ -14,12 +14,16 @@ POST    /scope                      controllers.ScopeController.addScope
 GET     /scopes                     controllers.ScopeController.getScopes
 
 # parametric geometry engine demonstration
-GET     /shell/:id                  services.api.v1.BrepController.getShell(id)
 POST    /shell                      services.api.v1.BrepController.createShell
+GET     /parametricshell/:id        services.api.v1.BrepController.getParametricShell(id)
 POST    /parametricshell            services.api.v1.BrepController.createParametricShell
 PUT     /parametricshell/:id        services.api.v1.BrepController.editParametricShell(id)
 
+# parametric script
+GET     /templatescript/:id         services.api.v1.ParamScriptController.getParamTemplateScript(id)
+
+# system monitoring
+GET     /                           services.api.v1.SystemController.dashboard
+
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.versioned(file)
-
-GET     /                           services.api.v1.SystemController.dashboard

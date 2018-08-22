@@ -29,7 +29,7 @@ trait Decorating {
     "untrapped exception (" + (thrown getClass) + ") -> " + stack
   }
 
-  def decorate(thrown: Throwable): Seq[String] =
+  private def decorate(thrown: Throwable): Seq[String] =
   {
     val stack = thrown getStackTrace
 

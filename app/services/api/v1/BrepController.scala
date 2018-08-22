@@ -12,16 +12,14 @@ import akka.actor.{ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
 import com.qunhe.diybe.module.math2.base.Point2d
-import com.qunhe.diybe.module.parametric.engine.{ParamScriptExecutor, ParamScriptResult}
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
-import mongo._
+import mongo.casbah.MongoActor
 import mongo.dal.{ModelDataRepository, ModelParamDataRepository, ModelParamTemplateDataRepository}
 import mongo.models.ModelData
 import paramscript.functions.BrepFunctions
-import paramscript.helper.{ModelParamDataBuilder, ParamScriptHelper}
 import play.Boot
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
@@ -29,7 +27,7 @@ import play.api.libs.json.Json
 import play.api.mvc._
 import shared.Outcome
 import slick.dal.{GeomodelRepository, ScripttemplateRepository}
-import subsystems.brep.CREATE_PARAM_MODEL
+import subsystems.brep.{CREATE_PARAM_MODEL, GET_PARAM_MODEL, UPDATE_PARAM_MODEL}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
@@ -74,6 +72,7 @@ class BrepController @Inject()(cc: ControllerComponents,
   Boot.modelParamTemplateDataRepo = modelParamTemplateDataRepo
   Boot.geoModelRepo = geoModelRepo
   Boot.scriptTemplateRepo = scriptTemplateRepo
+  Boot.configuration = configuration
 
   object ModelType extends Enumeration {
     val SHELL = "shell"
@@ -160,36 +159,12 @@ class BrepController @Inject()(cc: ControllerComponents,
               modelParamTemplateDataRepo.getModelParamTemplateData(scriptTemplateId).flatMap(modelParamTemplateDataOpt => {
                 modelParamTemplateDataOpt match {
                   case Some(modelParamTemplateData) => {
-                    val scriptData = modelParamTemplateData.parmScript
                     val json = request.body.asJson.get
-                    val userInputs = ParamScriptHelper.buildUserInputsFromJson(json)
-
-                    val executor: ParamScriptExecutor = ParamScriptHelper.paramScriptExecutor
-                    val resultParam: ParamScriptResult = executor
-                      .execute(scriptData.toParamScript, userInputs.asJava)
-                    val output: String = scriptData.savedOutputIds.headOption.getOrElse("")
-                    val shellNew: Shell = resultParam.getResultMap.get(output).asInstanceOf[Shell]
-
-                    val shells: List[Shell] = List(shellNew)
-                    val modelData = BrepDataBuilder.toJson(BrepDataBuilder.buildToDatas(shells.asJava, null))
-                    val modelDataNew = modelData.replaceAll(shellNew.getName, shellId);
-
-                    val modelParamData = ModelParamDataBuilder.
-                      buildModelParamDataWithUserInputs(shellId, scriptData,
-                        userInputs, scriptTemplateId)
-
-                    val editModelDataRes = modelDataRepo.updateModelData(shellId, ModelData(shellId, shellId, Json.parse(modelDataNew)))
-                    val editModelParamDataRes = modelParamDataRepo.updateModelParamData(shellId, modelParamData)
-                    val result = for {
-                      r1 <- editModelDataRes
-                      r2 <- editModelParamDataRes
-                    } yield (Map(
-                      "outcome" -> "shell being updated",
-                      "shell id" -> shellId
-                    ))
+                    val router = actorSystem.actorSelection("akka://application/user/daemon/router")
+                    val routed = (UPDATE_PARAM_MODEL(json, shellId, scriptTemplateId, modelParamTemplateData), "brep")
 
                     implicit val futures = Futures.actorSystemToFutures(actorSystem)
-                    result.withTimeout(timeoutThreshold milliseconds)
+                    (router ? routed).mapTo[Map[String, String]].withTimeout(timeoutThreshold milliseconds)
                       .map(outcome => Ok(jsonResponse(outcome)))
                       .recover {
                         case e: scala.concurrent.TimeoutException => {
@@ -280,29 +255,29 @@ class BrepController @Inject()(cc: ControllerComponents,
   }
 
   /**
-    * Gets a shell from input shell name id
+    * Gets a parametric shell metadata from input shell name id
     */
-  def getShell(shellId: String) = {
+  def getParametricShell(shellId: String) = {
     Action.async { request => {
+      val router = actorSystem.actorSelection("akka://application/user/daemon/router")
+      val routed = (GET_PARAM_MODEL(shellId), "brep")
+
       implicit val futures = Futures.actorSystemToFutures(actorSystem)
-      modelDataRepo.getModelData(shellId).withTimeout(timeoutThreshold milliseconds)
-        .map(shelldataOpt => {
-          shelldataOpt match {
-            case Some(shelldata) => {
-              val outcome = Map(
-                "outcome" -> "shell data found",
-                "shell data" -> shelldata.modelData.toString
-              )
-              Ok(jsonResponse(outcome))
-            }
-            case _ => {
-              val outcome = Map(
-                "outcome" -> "no shell data found"
-              )
-              NotFound(jsonResponse(outcome))
-            }
+      (router ? routed).mapTo[Option[Map[String, String]]].map(outcomeOpt => {
+        outcomeOpt match {
+          case Some(outcome) => {
+            Ok(jsonResponse(outcome))
           }
-        }).recover {
+          case _ => {
+            val outcome = Map(
+              "outcome" -> "no shell data found",
+              "template script id" -> "",
+              "shell data" -> ""
+            )
+            NotFound(jsonResponse(outcome))
+          }
+        }
+      }).recover {
         case e: scala.concurrent.TimeoutException => {
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
             .method + " " + request.uri + " timeout after "

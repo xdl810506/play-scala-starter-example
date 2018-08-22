@@ -26,4 +26,5 @@ object Boot {
   var geoModelRepo: GeomodelRepository = _
   var scriptTemplateRepo: ScripttemplateRepository = _
   var actorSystem: ActorSystem = _
+  var configuration: play.api.Configuration = _
 }

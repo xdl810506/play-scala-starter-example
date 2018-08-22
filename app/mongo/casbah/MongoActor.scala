@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package mongo
+package mongo.casbah
 
 import java.io.{PrintWriter, StringWriter}
 

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import paramscript.data.ParamScriptData
+import shared.ScalaObjMapper
 
 import scala.util.Try
 
@@ -32,23 +33,28 @@ case
 class ModelParamDescData(val name: String, val paramType: String,
                          val valueExpression: String)
 
-object ModelParamTemplateDataJsonFormats {
+object ModelParamTemplateDataJsonFormats extends ScalaObjMapper{
 
   import play.api.libs.json._
 
-  val mapper = new ObjectMapper() with ScalaObjectMapper
-  mapper.registerModule(DefaultScalaModule)
-
   implicit object ParamScriptDataFormat extends Format[ParamScriptData] {
     def writes(parmScript: ParamScriptData): JsValue = {
-      Json.parse(mapper.writeValueAsString(parmScript))
+      writeValueAsString(parmScript) match {
+        case Some(content) => Json.parse(content)
+        case _ => JsNull
+      }
     }
 
     def reads(json: JsValue): JsResult[ParamScriptData] = json.toString match {
       case x if x.nonEmpty => {
-        val parmScript: Try[ParamScriptData] = Try(mapper.readValue[ParamScriptData](x))
-        if (parmScript.isSuccess) JsSuccess(parmScript.get) else {
-          JsError("Expected ParamScriptData as String")
+        readValue[ParamScriptData](x) match {
+          case Some(paramScriptData) => {
+            val parmScript: Try[ParamScriptData] = Try(paramScriptData)
+            if (parmScript.isSuccess) JsSuccess(parmScript.get) else {
+              JsError("Expected ParamScriptData as String")
+            }
+          }
+          case _ => JsError("Expected ParamScriptData as String")
         }
       }
       case _ => JsError("Expected ParamScriptData as String")
@@ -57,14 +63,22 @@ object ModelParamTemplateDataJsonFormats {
 
   implicit object ModelParamDescDataListFormat extends Format[ModelParamDescDataList] {
     def writes(description: ModelParamDescDataList): JsValue = {
-      Json.parse(mapper.writeValueAsString(description))
+      writeValueAsString(description) match {
+        case Some(content) => Json.parse(content)
+        case _ => JsNull
+      }
     }
 
     def reads(json: JsValue): JsResult[ModelParamDescDataList] = json.toString match {
       case x if x.nonEmpty => {
-        val description: Try[ModelParamDescDataList] = Try(mapper.readValue[ModelParamDescDataList](x))
-        if (description.isSuccess) JsSuccess(description.get) else {
-          JsError("Expected ModelParamDescDataList as String")
+        readValue[ModelParamDescDataList](x) match {
+          case Some(modelDescDataList) => {
+            val description: Try[ModelParamDescDataList] = Try(modelDescDataList)
+            if (description.isSuccess) JsSuccess(description.get) else {
+              JsError("Expected ModelParamDescDataList as String")
+            }
+          }
+          case _ => JsError("Expected ModelParamDescDataList as String")
         }
       }
       case _ => JsError("Expected ModelParamDescDataList as String")

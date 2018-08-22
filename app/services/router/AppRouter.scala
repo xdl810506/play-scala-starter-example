@@ -8,7 +8,7 @@ package services.router
 import akka.actor.{Actor, ActorRef, Deploy, Props}
 import akka.routing.FromConfig
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import mongo.MongoActor
+import mongo.casbah.MongoActor
 import play.Boot
 import shared.{Decorating, Supervised}
 
