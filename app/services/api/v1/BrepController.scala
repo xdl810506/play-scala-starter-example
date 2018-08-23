@@ -6,8 +6,6 @@
 
 package services.api.v1
 
-import java.io.{PrintWriter, StringWriter}
-
 import akka.pattern.ask
 import akka.util.Timeout
 import com.qunhe.diybe.module.math2.base.Point2d
@@ -22,7 +20,7 @@ import play.api.libs.concurrent.Futures._
 import play.api.libs.json.Json
 import play.api.mvc._
 import play.{Boot, Contexts}
-import shared.Outcome
+import shared.{Decorating, Outcome}
 import subsystems.brep.{CREATE_PARAM_MODEL, GET_PARAM_MODEL, UPDATE_PARAM_MODEL}
 
 import scala.collection.JavaConverters._
@@ -38,7 +36,7 @@ import scala.util.control.NonFatal
   * @param cc standard controller components
   */
 @Singleton
-class BrepController @Inject()(cc: ControllerComponents) extends AbstractController(cc) with Outcome {
+class BrepController @Inject()(cc: ControllerComponents) extends AbstractController(cc) with Outcome with Decorating {
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy val timeoutThreshold: Long = Boot.configuration.getOptional[Long]("qunhe.geoparamengine.http" +
     ".timeout").getOrElse(30000)
@@ -96,10 +94,8 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
           InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
-          val sw = new StringWriter
-          e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + " " + sw.toString)
+            .method + " " + request.uri + " " + clarify(e))
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )
@@ -140,10 +136,8 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
                           InternalServerError(jsonResponse(outcome))
                         }
                         case NonFatal(e) => {
-                          val sw = new StringWriter
-                          e.printStackTrace(new PrintWriter(sw))
                           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-                            .method + " " + request.uri + " " + sw.toString)
+                            .method + " " + request.uri + " " + clarify(e))
                           val outcome = Map(
                             "outcome" -> ("server error: " + e.getMessage)
                           )
@@ -169,10 +163,8 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
                   InternalServerError(jsonResponse(outcome))
                 }
                 case NonFatal(e) => {
-                  val sw = new StringWriter
-                  e.printStackTrace(new PrintWriter(sw))
                   LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-                    .method + " " + request.uri + " " + sw.toString)
+                    .method + " " + request.uri + " " + clarify(e))
                   val outcome = Map(
                     "outcome" -> ("server error: " + e.getMessage)
                   )
@@ -204,10 +196,8 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
           InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
-          val sw = new StringWriter
-          e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + " " + sw.toString)
+            .method + " " + request.uri + " " + clarify(e))
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )
@@ -252,10 +242,8 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
           InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
-          val sw = new StringWriter
-          e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + " " + sw.toString)
+            .method + " " + request.uri + " " + clarify(e))
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )

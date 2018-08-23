@@ -16,7 +16,7 @@ import play.Boot
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.mvc._
-import shared.Outcome
+import shared.{Decorating, Outcome}
 import subsystems.script.GET_TEMPLATE_SCRIPT
 
 import scala.concurrent.ExecutionContext
@@ -39,7 +39,7 @@ import scala.util.control.NonFatal
   */
 @Singleton
 class ParamScriptController @Inject()(cc: ControllerComponents)
-                                     (implicit exec: ExecutionContext) extends AbstractController(cc) with Outcome {
+                                     (implicit exec: ExecutionContext) extends AbstractController(cc) with Outcome with Decorating{
 
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
   lazy val timeoutThreshold: Long = Boot.configuration.getOptional[Long]("qunhe.geoparamengine.http" +
@@ -86,10 +86,8 @@ class ParamScriptController @Inject()(cc: ControllerComponents)
           InternalServerError(jsonResponse(outcome))
         }
         case NonFatal(e) => {
-          val sw = new StringWriter
-          e.printStackTrace(new PrintWriter(sw))
           LOG.notice(WarningLevel.WARN, NoticeType.WE_CHAT, "Geometry Middleware", request
-            .method + " " + request.uri + " " + sw.toString)
+            .method + " " + request.uri + " " + clarify(e))
           val outcome = Map(
             "outcome" -> ("server error: " + e.getMessage)
           )

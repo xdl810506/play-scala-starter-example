@@ -23,6 +23,7 @@ import play.api.libs.json._
 import services.api.v1.BrepController
 import shared.{Decorating, Supervised}
 import slick.data.{GeomodelInfo, ScripttemplateInfo}
+import statistics.Alert
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -39,8 +40,6 @@ case class GET_PARAM_MODEL(shellId: String)
   * - /system/v1 HTTP/REST Brep API back-end handlers
   */
 class AbstractHandlers extends Supervised with Decorating {
-
-  override def factory = context.props.deploy.config
 
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[BrepController])
 
@@ -107,6 +106,7 @@ class AbstractHandlers extends Supervised with Decorating {
             } catch {
               case e: Exception => {
                 val errorMsg = clarify(e)
+                Alert(self, "failed to create shell due to " + errorMsg)
                 Future(Map(
                   "outcome" -> "failed to create shell",
                   "diagnostics" -> errorMsg
@@ -129,7 +129,9 @@ class AbstractHandlers extends Supervised with Decorating {
           )).pipeTo(senderRef)
         }
         case e: Exception => {
-          LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "failed to execute parametric script due to: " + clarify(e))
+          val errorMsg = "failed to execute parametric script due to: " + clarify(e)
+          LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
+          Alert(self, errorMsg)
           Future(Map(
             "outcome" -> ("server error: " + e.getMessage)
           )).pipeTo(senderRef)
@@ -175,6 +177,7 @@ class AbstractHandlers extends Supervised with Decorating {
             } catch {
               case e: Exception => {
                 val errorMsg = clarify(e)
+                Alert(self, "failed to update shell " + errorMsg)
                 Future(Map(
                   "outcome" -> "failed to update shell",
                   "diagnostics" -> errorMsg
@@ -197,7 +200,9 @@ class AbstractHandlers extends Supervised with Decorating {
           )).pipeTo(senderRef)
         }
         case e: Exception => {
-          LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", "failed to execute parametric script due to: " + clarify(e))
+          val errorMsg = "failed to execute parametric script due to: "+ clarify(e)
+          LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
+          Alert(self, errorMsg)
           Future(Map(
             "outcome" -> ("server error: " + e.getMessage)
           )).pipeTo(senderRef)

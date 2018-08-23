@@ -8,7 +8,9 @@ package statistics
 import java.sql.Timestamp
 
 import akka.actor.Cancellable
+import play.Boot
 import shared.{Supervised, UsingSystemProperties}
+import slick.data.AlertsInfo
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{Duration, _}
@@ -19,11 +21,6 @@ final class Monitor(every: Duration) extends Supervised with UsingSystemProperti
     * - the optional node's identifier (set from the java properties, setup by Chef)
     */
   lazy val originator = property("node.id", "N/A")
-
-  /**
-    * - the alert collection in mongo
-    */
-  //lazy val alerts = Boot.alertsRepository
 
   /**
     * - alert counter
@@ -57,10 +54,10 @@ final class Monitor(every: Duration) extends Supervised with UsingSystemProperti
   def receive = {
     case Alert(who, tick, why) => {
       try {
-        //alerts.add(new Alerts(None, who, new Timestamp(tick), originator, why))
+        Boot.alertsRepo.add(AlertsInfo(None, who, new Timestamp(tick), originator, why))
       }
       catch {
-        case _: Throwable => log warning (self.path + " : unable to write alert to mongo")
+        case _: Throwable => log warning (self.path + " : unable to write alert to mysql")
       }
 
       count = count + 1

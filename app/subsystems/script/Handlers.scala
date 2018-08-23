@@ -19,8 +19,6 @@ case class GET_TEMPLATE_SCRIPT(templateScriptId: String)
   */
 class AbstractHandlers extends Supervised with ScalaObjMapper {
 
-  override def factory = context.props.deploy.config
-
   implicit val ec = Contexts.expensiveDbLookups
 
   override

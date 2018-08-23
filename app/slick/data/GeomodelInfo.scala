@@ -12,9 +12,6 @@ case class GeomodelInfo(modelid: Option[Long], modeldataid: String, modeltype: S
                         paramtemplateid: Long, paramtemplatedataid: String, created: Timestamp, lastmodified: Timestamp)
 
 object GeomodelInfo {
-
-  //implicit val geomodelInfoFormat = Json.format[GeomodelInfo]
-
 }
 
 

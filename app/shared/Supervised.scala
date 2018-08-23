@@ -7,6 +7,7 @@ package shared
 
 import akka.actor.{Actor, ActorLogging, Deploy, OneForOneStrategy, Props, SupervisorStrategy}
 import akka.routing.RouterConfig
+import statistics.Alert
 
 import scala.language.postfixOps
 import scala.concurrent.duration._
@@ -30,7 +31,7 @@ trait Supervised extends Actor with ActorLogging with Configured with UsingTime 
 
     log.error(self.path + " : actor crashed, re-starting -> " + cause)
 
-    //Alert(self, cause)
+    Alert(self, cause)
      
     context.children foreach (context.stop(_))
 

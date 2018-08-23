@@ -11,6 +11,7 @@ import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import paramscript.data.ParamScriptData
 import paramscript.helper.ParamScriptHelper
 import shared.{Decorating, Supervised}
+import statistics.Alert
 
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
@@ -39,6 +40,7 @@ class ScriptExecutorActor extends Supervised with Decorating {
         case e: Exception => {
           val errorMsg = "parameter script execution failed with " + clarify(e)
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
+          Alert(self, errorMsg)
           sender ! None
           self ! PoisonPill
         }
@@ -56,6 +58,7 @@ class ScriptExecutorActor extends Supervised with Decorating {
         case e: Exception => {
           val errorMsg = "parameter script execution with user inputs failed with " + clarify(e)
           LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware", errorMsg)
+          Alert(self, errorMsg)
           sender ! None
           self ! PoisonPill
         }

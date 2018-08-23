@@ -10,6 +10,7 @@ import akka.routing.FromConfig
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import play.Boot
 import shared.{Decorating, Supervised}
+import statistics.Alert
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
@@ -29,6 +30,7 @@ final class AppRouter @Inject()(configuration: Configuration) extends Supervised
     case e: Throwable => {
       LOG.notice(WarningLevel.ERROR, NoticeType.WE_CHAT, "Geometry Middleware",
         "Failed to retrieve qunhe.geoparamengine.subsystems.handlers: " + clarify(e))
+      Alert(self, clarify(e))
       List().asJava
     }
   }
