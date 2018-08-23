@@ -8,7 +8,6 @@ package services.api.v1
 
 import java.io.{PrintWriter, StringWriter}
 
-import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
@@ -30,13 +29,13 @@ import scala.util.control.NonFatal
   * simple asynchronous code in a controller. It uses a timer to
   * asynchronously delay sending a response for 1 second.
   *
-  * @param cc          standard controller components
-  * @param exec        We need an `ExecutionContext` to execute our
-  *                    asynchronous code.  When rendering content, you should use Play's
-  *                    default execution context, which is dependency injected.  If you are
-  *                    using blocking operations, such as database or network access, then you should
-  *                    use a different custom execution context that has a thread pool configured for
-  *                    a blocking API.
+  * @param cc   standard controller components
+  * @param exec We need an `ExecutionContext` to execute our
+  *             asynchronous code.  When rendering content, you should use Play's
+  *             default execution context, which is dependency injected.  If you are
+  *             using blocking operations, such as database or network access, then you should
+  *             use a different custom execution context that has a thread pool configured for
+  *             a blocking API.
   */
 @Singleton
 class ParamScriptController @Inject()(cc: ControllerComponents)

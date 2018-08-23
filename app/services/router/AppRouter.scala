@@ -8,7 +8,6 @@ package services.router
 import akka.actor.{Actor, ActorRef, Deploy, Props}
 import akka.routing.FromConfig
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import mongo.casbah.MongoActor
 import play.Boot
 import shared.{Decorating, Supervised}
 
@@ -20,7 +19,7 @@ final case class Routed(from: ActorRef, to: String)
 import javax.inject._
 import play.api.Configuration
 
-final class AppRouter @Inject()(configuration: Configuration) extends Supervised with Decorating{
+final class AppRouter @Inject()(configuration: Configuration) extends Supervised with Decorating {
   /**
     * - our subsystem configuration (one block mapping to one kind of actor handling the subsystem logic)
     */
@@ -34,7 +33,7 @@ final class AppRouter @Inject()(configuration: Configuration) extends Supervised
     }
   }
 
-  lazy val LOG: QHLogger = QHLogger.getLogger(classOf[MongoActor])
+  lazy val LOG: QHLogger = QHLogger.getLogger(classOf[AppRouter])
 
   /**
     * - our set of subsystem handlers

@@ -6,13 +6,8 @@
 
 package play
 
-import java.text.SimpleDateFormat
-import java.util.TimeZone
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.ActorSystem
 import mongo.dal.{ModelDataRepository, ModelParamDataRepository, ModelParamTemplateDataRepository}
-import shared.{Loggable, UsingTime}
 import slick.dal.{GeomodelRepository, ScripttemplateRepository}
 
 /**

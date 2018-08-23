@@ -17,16 +17,15 @@ import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
 import mongo.models.ModelData
 import paramscript.functions.BrepFunctions
-import play.{Boot, Contexts}
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._
 import play.api.libs.json.Json
 import play.api.mvc._
+import play.{Boot, Contexts}
 import shared.Outcome
 import subsystems.brep.{CREATE_PARAM_MODEL, GET_PARAM_MODEL, UPDATE_PARAM_MODEL}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
@@ -36,7 +35,7 @@ import scala.util.control.NonFatal
   * simple asynchronous code in a controller. It uses a timer to
   * asynchronously delay sending a response for 1 second.
   *
-  * @param cc   standard controller components
+  * @param cc standard controller components
   */
 @Singleton
 class BrepController @Inject()(cc: ControllerComponents) extends AbstractController(cc) with Outcome {
@@ -56,10 +55,6 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
   def createShell = {
     import scala.concurrent.ExecutionContext.Implicits.global
     Action.async { request => {
-      // You will need a separate execution context that has been configured with enough threads to
-      // deal with the expected concurrency. -- you usually get
-      // that by injecting it into your controller's constructor
-      // https://www.playframework.com/documentation/2.6.x/ScalaAsync
       val json = request.body.asJson.get
       val startPtX = (json \ "startpoint" \ "x").as[Double]
       val startPtY = (json \ "startpoint" \ "y").as[Double]
@@ -84,10 +79,6 @@ class BrepController @Inject()(cc: ControllerComponents) extends AbstractControl
   def createParametricShell = {
     import scala.concurrent.ExecutionContext.Implicits.global
     Action.async { request => {
-      // You will need a separate execution context that has been configured with enough threads to
-      // deal with the expected concurrency. -- you usually get
-      // that by injecting it into your controller's constructor
-      // https://www.playframework.com/documentation/2.6.x/ScalaAsync
       val json = request.body.asJson.get
 
       val router = Boot.actorSystem.actorSelection("akka://application/user/daemon/router")

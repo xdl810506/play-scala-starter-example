@@ -49,7 +49,6 @@ class AbstractHandlers extends Supervised with Decorating {
   implicit val timeout: Timeout = timeoutThreshold.milliseconds
 
   implicit val futures = Futures.actorSystemToFutures(Boot.actorSystem)
-  implicit val ec = Contexts.dbWriteOperations
 
   object ModelType extends Enumeration {
     val SHELL = "shell"
@@ -58,6 +57,7 @@ class AbstractHandlers extends Supervised with Decorating {
   override
   def receive = {
     case (CREATE_PARAM_MODEL(json)) => {
+      implicit val ec = Contexts.dbWriteOperations
       val scriptData = ParamScriptHelper.buildParamScriptDataFromJson(json)
       val scriptExecutorActor = named(new ScriptExecutorActor, UUID.randomUUID.toString())
 
@@ -137,6 +137,8 @@ class AbstractHandlers extends Supervised with Decorating {
       }
     }
     case (UPDATE_PARAM_MODEL(json, shellId, scriptTemplateId, modelParamTemplateData)) => {
+      implicit val ec = Contexts.dbWriteOperations
+
       val scriptData = modelParamTemplateData.parmScript
       val userInputs = ParamScriptHelper.buildUserInputsFromJson(json)
 
@@ -203,6 +205,7 @@ class AbstractHandlers extends Supervised with Decorating {
       }
     }
     case (GET_PARAM_MODEL(shellId)) => {
+      implicit val ec = Contexts.expensiveDbLookups
       val getModelDataRes = Boot.modelDataRepo.getModelData(shellId)
       val getGeoModelInfoRes = Boot.geoModelRepo.get(shellId)
       val result = for {
@@ -219,7 +222,7 @@ class AbstractHandlers extends Supervised with Decorating {
         case (_, _) => {
           None
         }
-      })(Contexts.expensiveDbLookups)
+      })
 
       result.pipeTo(sender)
     }
