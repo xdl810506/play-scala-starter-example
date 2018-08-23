@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package mongo.models
+package mongo.data
 
 import play.api.libs.json.JsValue
 

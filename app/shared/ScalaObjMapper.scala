@@ -10,12 +10,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import play.api.inject.Binding
-
-import scala.reflect.ClassTag
 
 /**
-  * @author qingliang
+  * @author jiangliu
   *
   */
 trait ScalaObjMapper extends Decorating {

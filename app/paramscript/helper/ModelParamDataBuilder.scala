@@ -8,20 +8,18 @@ package paramscript.helper
 
 import java.util.UUID
 
-import mongo.models._
-import paramscript._
+import mongo.data._
 import paramscript.data._
-import play.api.libs.json.JsValue
 
 /**
-  * @author qingliang
+  * @author jiangliu
   *
   */
 object ModelParamDataBuilder {
   def buildModelParamDataWithUserInputs(shellId: String,
-                                            scriptData: ParamScriptData,
-                                            userInputs: Map[String, Any],
-                                            shellScriptTemplateId: String):
+                                        scriptData: ParamScriptData,
+                                        userInputs: Map[String, Any],
+                                        shellScriptTemplateId: String):
   ModelParamData = {
     var params: Map[String, String] = Map()
     for (inputParam <- scriptData.inputs) {
@@ -36,7 +34,7 @@ object ModelParamDataBuilder {
   def buildModelParamAndTemplateData(shellId: String, scriptData: ParamScriptData):
   (ModelParamTemplateData, ModelParamData) = {
     var params: Map[String, String] = Map()
-    var paramsTemplate: List[ModelParamDescData]= List()
+    var paramsTemplate: List[ModelParamDescData] = List()
     for (inputParam <- scriptData.inputs) {
       val paramName = inputParam.getParamName
       val paramValueType = inputParam.getValueType

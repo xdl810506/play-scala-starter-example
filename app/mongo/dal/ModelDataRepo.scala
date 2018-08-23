@@ -8,7 +8,7 @@ package mongo.dal
 
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject.{Inject, Singleton}
-import mongo.models.ModelData
+import mongo.data.ModelData
 import play.api.libs.json.{JsObject, Json}
 import play.modules.reactivemongo.ReactiveMongoApi
 import reactivemongo.api.commands.{LastError, WriteResult}
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 @Singleton
 class ModelDataRepository @Inject()(implicit ec: ExecutionContext, reactiveMongoApi: ReactiveMongoApi) extends Decorating {
 
-  import mongo.models.ModelDataJsonFormats._
+  import mongo.data.ModelDataJsonFormats._
 
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[ModelDataRepository])
 

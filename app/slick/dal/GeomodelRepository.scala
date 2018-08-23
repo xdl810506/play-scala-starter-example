@@ -14,7 +14,7 @@ import play.api.db.slick.DatabaseConfigProvider
 import shared.Decorating
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.models.GeomodelInfo
+import slick.data.GeomodelInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 

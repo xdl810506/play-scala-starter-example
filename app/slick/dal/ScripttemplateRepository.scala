@@ -14,7 +14,7 @@ import play.api.db.slick.DatabaseConfigProvider
 import shared.Decorating
 import slick.jdbc.JdbcProfile
 import slick.jdbc.meta.MTable
-import slick.models.ScripttemplateInfo
+import slick.data.ScripttemplateInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 

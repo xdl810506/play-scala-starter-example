@@ -4,7 +4,7 @@
  * Qunhe PROPRIETARY/CONFIDENTIAL, any form of usage is subject to approval.
  */
 
-package slick.models
+package slick.data
 
 import java.sql.Timestamp
 

@@ -11,7 +11,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject.{Inject, Singleton}
-import mongo.models.ModelParamTemplateData
+import mongo.data.ModelParamTemplateData
 import play.api.libs.json.{JsObject, Json}
 import play.modules.reactivemongo.ReactiveMongoApi
 import reactivemongo.api.commands.{LastError, WriteResult}
@@ -31,7 +31,7 @@ import scala.concurrent.{ExecutionContext, Future}
 @Singleton
 class ModelParamTemplateDataRepository @Inject()(implicit ec: ExecutionContext, reactiveMongoApi: ReactiveMongoApi) extends Decorating {
 
-  import mongo.models.ModelParamTemplateDataJsonFormats._
+  import mongo.data.ModelParamTemplateDataJsonFormats._
 
   lazy val LOG: QHLogger = QHLogger.getLogger(classOf[ModelParamTemplateDataRepository])
 

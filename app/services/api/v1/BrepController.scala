@@ -15,7 +15,7 @@ import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
 import javax.inject._
-import mongo.models.ModelData
+import mongo.data.ModelData
 import paramscript.functions.BrepFunctions
 import play.api.libs.concurrent.Futures
 import play.api.libs.concurrent.Futures._

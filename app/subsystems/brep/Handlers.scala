@@ -14,7 +14,7 @@ import com.qunhe.diybe.module.parametric.engine.ParamScriptResult
 import com.qunhe.diybe.utils.brep.topo.Shell
 import com.qunhe.diybe.utils.brep.utils.BrepDataBuilder
 import com.qunhe.log.{NoticeType, QHLogger, WarningLevel}
-import mongo.models.{ModelData, ModelParamTemplateData}
+import mongo.data.{ModelData, ModelParamTemplateData}
 import paramscript.actor._
 import paramscript.helper.{ModelParamDataBuilder, ParamScriptHelper}
 import play.{Boot, Contexts}
@@ -22,7 +22,7 @@ import play.api.libs.concurrent.Futures
 import play.api.libs.json._
 import services.api.v1.BrepController
 import shared.{Decorating, Supervised}
-import slick.models.{GeomodelInfo, ScripttemplateInfo}
+import slick.data.{GeomodelInfo, ScripttemplateInfo}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future

@@ -13,3 +13,4 @@ GET     /templatescript/:id         services.api.v1.ParamScriptController.getPar
 
 # system monitoring
 GET     /                           services.api.v1.SystemController.dashboard
+#GET    /healthy                    services.api.v1.SystemController.heathy
