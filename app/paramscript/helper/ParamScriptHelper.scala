@@ -128,7 +128,7 @@ object ParamScriptHelper {
         "create shell", 0, 0)
     functionShell.assignUniqueId
 
-    val functions: List[ModelParamFunction] = List(functionShell, functionShell)
+    val functions: List[ModelParamFunction] = List(functionShell)
 
     val output: String = functionShell.getId
     val outputs: Set[String] = Set(output)
